@@ -6,7 +6,7 @@ terraform {
       version = ">= 3.0.0"
     }
   }
-  
+
   required_version = ">= 1.0.0"
 }
 
@@ -15,7 +15,7 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "example" {
-  name     = "example-resource-group"
-  location = "West Europe"
+  name     = "testrg"
+  location = "UK South"
 }
 ```
