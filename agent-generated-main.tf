@@ -7,7 +7,7 @@ terraform {
     }
   }
 
-  required_version = ">= 1.0.0"
+  required_version = ">= 1.0"
 }
 
 provider "azurerm" {
@@ -15,47 +15,34 @@ provider "azurerm" {
 }
 
 variable "prefix" {
-  description = "The prefix used for all resources"
+  description = "The prefix used for all resources in this example."
   type        = string
 }
 
 variable "location" {
-  description = "The Azure Region in which all resources should be created"
+  description = "The Azure Region in which all resources in this example should be created."
   type        = string
 }
 
-resource "azurerm_resource_group" "main" {
-  name     = "${var.prefix}-rg"
-  location = var.location
-}
+resource "azurerm_cosmosdb_account" "ecomdb" {
+  name                = "${var.prefix}ecomdb"
+  location            = var.location
+  resource_group_name = "${var.prefix}-rg"
 
-resource "azurerm_postgresql_flexible_server" "main" {
-  name                = "${var.prefix}-db01"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  administrator_login = "adminuser"
-  administrator_password = "P@ssw0rd1234!"
+  offer_type = "Standard"
 
-  sku_name = "Standard_B1ms"
-  storage_mb = 10240
+  kind  = "GlobalDocumentDB"
+  consistency_policy {
+    consistency_level = "Session"
+  }
 
-  version = "13"
+  geo_location {
+    location          = var.location
+    failover_priority = 0
+  }
 
-  depends_on = [azurerm_resource_group.main]
-}
-
-resource "azurerm_postgresql_flexible_server_configuration" "main" {
-  name                = "backslash_quote"
-  server_id           = azurerm_postgresql_flexible_server.main.id
-  value               = "on"
-}
-
-resource "azurerm_postgresql_flexible_server_database" "main" {
-  name     = "db01"
-  server_id = azurerm_postgresql_flexible_server.main.id
-}
-
-output "postgresql_server_fqdn" {
-  value = azurerm_postgresql_flexible_server.main.fqdn
+  capabilities {
+    name = "EnableServerless"
+  }
 }
 ```
