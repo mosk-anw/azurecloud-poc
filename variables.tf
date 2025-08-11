@@ -1,22 +1,16 @@
-variable "location" {
-  description = "The Azure region where the AKS cluster will be deployed."
-  type        = string
-  default     = "uksouth"
-}
-
 variable "resource_group_name" {
-  description = "The name of the resource group in which to create the AKS cluster."
+  description = "The name of the resource group"
   type        = string
 }
 
-variable "dns_prefix" {
-  description = "The DNS prefix to use with the AKS cluster."
+variable "location" {
+  description = "The Azure region where the resources will be created"
   type        = string
-  default     = "myaks01"
+  default     = "india"
 }
 
-variable "tags" {
-  description = "A map of tags to assign to the resources."
-  type        = map(string)
-  default     = {}
+variable "storage_account_name" {
+  description = "The name of the storage account"
+  type        = string
+  default     = "mytestbucket01"
 }
