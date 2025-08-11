@@ -1,7 +1,7 @@
 variable "resource_group_name" {
-  description = "The name of the resource group to create."
+  description = "The name of the resource group."
   type        = string
-  default     = "rg1789"
+  default     = "test12345"
 }
 
 variable "resource_group_location" {
