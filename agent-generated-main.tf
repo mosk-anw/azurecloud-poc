@@ -12,12 +12,12 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "example" {
-  name     = "test123"
-  location = "europe"
+  name     = "example-resources"
+  location = "australia"
 }
 
 resource "azurerm_kubernetes_cluster" "example" {
-  name                = "exampleAKSCluster"
+  name                = "testaks787"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
   dns_prefix          = var.dns_prefix
