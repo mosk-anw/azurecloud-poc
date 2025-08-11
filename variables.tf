@@ -1,17 +1,27 @@
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string
-  default     = "production-rg"
 }
 
 variable "location" {
-  description = "The Azure region where the resource group should be created"
+  description = "The location of the resource group"
   type        = string
-  default     = "UK South"
+  default     = "uksouth"
 }
 
-variable "tags" {
-  description = "A map of tags to assign to the resources"
-  type        = map(string)
-  default     = {}
+variable "storage_account_name" {
+  description = "The name of the storage account"
+  type        = string
+}
+
+variable "index_document" {
+  description = "The index document for the static website"
+  type        = string
+  default     = "index.html"
+}
+
+variable "error_document" {
+  description = "The error document for the static website"
+  type        = string
+  default     = "error.html"
 }
