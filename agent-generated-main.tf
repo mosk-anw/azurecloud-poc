@@ -5,6 +5,7 @@ terraform {
       version = ">= 3.71.0, < 5.0.0"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 provider "azurerm" {
@@ -12,25 +13,70 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "example" {
-  name     = "example-resources"
-  location = "australia"
+  name     = var.resource_group_name
+  location = var.location
 }
 
-resource "azurerm_kubernetes_cluster" "example" {
-  name                = "testaks787"
+resource "azurerm_public_ip" "example" {
+  name                = "example-pip"
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  allocation_method   = "Dynamic"
+}
+
+resource "azurerm_network_interface" "example" {
+  name                = "example-nic"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
-  dns_prefix          = var.dns_prefix
 
-  default_node_pool {
-    name       = "default"
-    node_count = 3
-    vm_size    = "Standard_DS2_v2"
-    min_count  = 1
-    max_count  = 5
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.example.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.example.id
+  }
+}
+
+resource "azurerm_virtual_network" "example" {
+  name                = "example-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+}
+
+resource "azurerm_subnet" "example" {
+  name                 = "example-subnet"
+  resource_group_name  = azurerm_resource_group.example.name
+  virtual_network_name = azurerm_virtual_network.example.name
+  address_prefixes     = ["10.0.2.0/24"]
+}
+
+resource "azurerm_linux_virtual_machine" "example" {
+  name                = var.vm_name
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  size                = "Standard_DS1_v2"
+  admin_username      = var.admin_username
+  network_interface_ids = [
+    azurerm_network_interface.example.id
+  ]
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
   }
 
-  identity {
-    type = "SystemAssigned"
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
   }
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = var.ssh_public_key
+  }
+
+  tags = var.tags
 }
