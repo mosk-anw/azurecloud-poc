@@ -11,20 +11,27 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "example" {
-  name     = var.resource_group_name
-  location = var.location
+resource "azurerm_resource_group" "aks_rg" {
+  name     = "mytestaks666"
+  location = "uksouth"
 }
 
-resource "azurerm_storage_account" "example" {
-  name                     = var.storage_account_name
-  resource_group_name      = azurerm_resource_group.example.name
-  location                 = azurerm_resource_group.example.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+resource "azurerm_kubernetes_cluster" "aks_cluster" {
+  name                = "mytestaks666"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
 
-  static_website {
-    index_document = var.index_document
-    error_404_document = var.error_document
+  default_node_pool {
+    name       = "default"
+    node_count = 3
+    vm_size    = "Standard_DS2_v2"
+    min_count  = 1
+    max_count  = 5
+  }
+
+  dns_prefix = var.dns_prefix
+
+  identity {
+    type = "SystemAssigned"
   }
 }
