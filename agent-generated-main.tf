@@ -11,15 +11,16 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "aks_rg" {
-  name     = "mytestaks666"
-  location = "uksouth"
+resource "azurerm_resource_group" "example" {
+  name     = "test123"
+  location = "europe"
 }
 
-resource "azurerm_kubernetes_cluster" "aks_cluster" {
-  name                = "mytestaks666"
-  location            = azurerm_resource_group.aks_rg.location
-  resource_group_name = azurerm_resource_group.aks_rg.name
+resource "azurerm_kubernetes_cluster" "example" {
+  name                = "exampleAKSCluster"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  dns_prefix          = var.dns_prefix
 
   default_node_pool {
     name       = "default"
@@ -28,8 +29,6 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
     min_count  = 1
     max_count  = 5
   }
-
-  dns_prefix = var.dns_prefix
 
   identity {
     type = "SystemAssigned"
