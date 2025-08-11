@@ -1,5 +1,5 @@
-variable "region_name" {
-  description = "The Azure region name"
+variable "dns_prefix" {
+  description = "The DNS prefix to use with the AKS cluster."
   type        = string
-  default     = "eastus"
+  default     = "exampledns"
 }
