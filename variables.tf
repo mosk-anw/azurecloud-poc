@@ -1,36 +1,22 @@
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string
-  default     = "testrg786"
 }
 
 variable "location" {
-  description = "The location of the resources"
+  description = "The Azure region where the resources will be created"
   type        = string
-  default     = "us"
+  default     = "eastus"
 }
 
-variable "vm_name" {
-  description = "The name of the virtual machine"
+variable "index_document" {
+  description = "The index document for the static website"
   type        = string
-  default     = "testvm"
+  default     = "index.html"
 }
 
-variable "admin_username" {
-  description = "The admin username for the VM"
+variable "error_document" {
+  description = "The error document for the static website"
   type        = string
-  default     = "azureuser"
-}
-
-variable "ssh_public_key" {
-  description = "The SSH public key for the VM"
-  type        = string
-}
-
-variable "tags" {
-  description = "Tags to be applied to resources"
-  type        = map(string)
-  default     = {
-    environment = "test"
-  }
+  default     = "error.html"
 }
