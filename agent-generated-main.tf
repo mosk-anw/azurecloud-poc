@@ -1,21 +1,18 @@
 terraform {
-  required_version = "~> 1.9"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.71"
+      version = ">= 3.71.0, < 5.0.0"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 provider "azurerm" {
   features {}
 }
 
-module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.2.0"
-
+resource "azurerm_resource_group" "example" {
   name     = var.resource_group_name
-  location = var.resource_group_location
+  location = var.location
 }
