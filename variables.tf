@@ -1,7 +1,6 @@
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string
-  default     = "testrg"
 }
 
 variable "location" {
@@ -10,28 +9,20 @@ variable "location" {
   default     = "india"
 }
 
-variable "vm_name" {
-  description = "The name of the virtual machine"
+variable "storage_account_name" {
+  description = "The name of the storage account"
   type        = string
-  default     = "webhost-vm"
+  default     = "test01"
 }
 
-variable "admin_username" {
-  description = "The admin username for the virtual machine"
+variable "index_document" {
+  description = "The index document for the static website"
   type        = string
-  default     = "azureuser"
+  default     = "index.html"
 }
 
-variable "ssh_public_key" {
-  description = "The SSH public key for the virtual machine"
+variable "error_document" {
+  description = "The error document for the static website"
   type        = string
-}
-
-variable "tags" {
-  description = "A map of tags to assign to the resources"
-  type        = map(string)
-  default     = {
-    environment = "test"
-    project     = "webhosting"
-  }
+  default     = "error.html"
 }
