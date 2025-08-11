@@ -5,27 +5,14 @@ terraform {
       version = ">= 3.71.0, < 5.0.0"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 provider "azurerm" {
   features {}
 }
 
-resource "azurerm_kubernetes_cluster" "aksperf12345" {
-  name                = var.cluster_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  dns_prefix          = var.dns_prefix
-
-  default_node_pool {
-    name       = "default"
-    node_count = var.node_count
-    vm_size    = "Standard_DS2_v2"
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  tags = var.tags
+resource "azurerm_resource_group" "production_rg" {
+  name     = var.resource_group_name
+  location = var.location
 }
