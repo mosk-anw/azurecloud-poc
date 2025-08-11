@@ -1,11 +1,5 @@
-variable "resource_group_name" {
-  description = "The name of the resource group"
-  type        = string
-  default     = "myrg"
-}
-
-variable "resource_group_location" {
-  description = "The location of the resource group"
+variable "region_name" {
+  description = "The Azure region name"
   type        = string
   default     = "eastus"
 }
