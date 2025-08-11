@@ -1,40 +1,33 @@
-variable "resource_group_name" {
-  description = "The name of the resource group"
+variable "cluster_name" {
+  description = "The name of the AKS cluster."
   type        = string
-  default     = "myResourceGroup"
+  default     = "aksperf12345"
 }
 
 variable "location" {
-  description = "The Azure region to deploy resources"
+  description = "The Azure region where the AKS cluster will be deployed."
   type        = string
   default     = "uksouth"
 }
 
-variable "vm_name" {
-  description = "The name of the virtual machine"
+variable "resource_group_name" {
+  description = "The name of the resource group in which to create the AKS cluster."
   type        = string
-  default     = "vmweb123"
 }
 
-variable "vm_size" {
-  description = "The size of the virtual machine"
+variable "dns_prefix" {
+  description = "The DNS prefix to use with the AKS cluster."
   type        = string
-  default     = "Standard_B1s"
 }
 
-variable "admin_username" {
-  description = "The admin username for the VM"
-  type        = string
-  default     = "azureuser"
-}
-
-variable "admin_ssh_public_key" {
-  description = "The SSH public key for the admin user"
-  type        = string
+variable "node_count" {
+  description = "The number of nodes in the default node pool."
+  type        = number
+  default     = 10
 }
 
 variable "tags" {
-  description = "A map of tags to assign to the resources"
+  description = "A map of tags to assign to the resource."
   type        = map(string)
   default     = {}
 }
