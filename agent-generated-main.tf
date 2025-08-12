@@ -21,8 +21,8 @@ resource "azurerm_kubernetes_cluster" "myaks01" {
     name       = "default"
     node_count = 10
     vm_size    = "Standard_DS2_v2"
-    min_count  = 3
-    max_count  = 10
+    min_count  = 1
+    max_count  = 15
     zones      = ["1", "2", "3"]
   }
 
