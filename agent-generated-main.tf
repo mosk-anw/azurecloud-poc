@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.71.0, < 5.0.0"
+      version = "~> 4.0"
     }
   }
 }
@@ -11,78 +11,69 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "aks_rg" {
-  name     = "aks-rg"
-  location = "uksouth"
+resource "azurerm_resource_group" "myweb01" {
+  name     = "myweb01"
+  location = var.location
 }
 
-resource "azurerm_virtual_network" "aks_vnet" {
-  name                = "aks-vnet"
-  address_space       = ["10.0.0.0/8"]
-  location            = azurerm_resource_group.aks_rg.location
-  resource_group_name = azurerm_resource_group.aks_rg.name
+resource "azurerm_public_ip" "myweb01_pip" {
+  name                = "myweb01-pip"
+  resource_group_name = azurerm_resource_group.myweb01.name
+  location            = azurerm_resource_group.myweb01.location
+  allocation_method   = "Dynamic"
 }
 
-resource "azurerm_subnet" "aks_subnet" {
-  name                 = "aks-subnet"
-  resource_group_name  = azurerm_resource_group.aks_rg.name
-  virtual_network_name = azurerm_virtual_network.aks_vnet.name
-  address_prefixes     = ["10.240.0.0/16"]
-}
-
-resource "azurerm_subnet" "bastion_subnet" {
-  name                 = "AzureBastionSubnet"
-  resource_group_name  = azurerm_resource_group.aks_rg.name
-  virtual_network_name = azurerm_virtual_network.aks_vnet.name
-  address_prefixes     = ["10.241.0.0/24"]
-}
-
-resource "azurerm_kubernetes_cluster" "vmprivate01" {
-  name                = "vmprivate01"
-  location            = azurerm_resource_group.aks_rg.location
-  resource_group_name = azurerm_resource_group.aks_rg.name
-  dns_prefix          = var.dns_prefix
-
-  default_node_pool {
-    name       = "default"
-    node_count = 1
-    vm_size    = "Standard_DS2_v2"
-    vnet_subnet_id = azurerm_subnet.aks_subnet.id
-    min_count   = 1
-    max_count   = 5
-    zones       = ["1", "2", "3"]
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  network_profile {
-    network_plugin    = "azure"
-    network_policy    = "azure"
-    load_balancer_sku = "standard"
-    outbound_type     = "userDefinedRouting"
-  }
-
-  private_cluster_enabled = true
-}
-
-resource "azurerm_bastion_host" "example" {
-  name                = "example-bastion"
-  location            = azurerm_resource_group.aks_rg.location
-  resource_group_name = azurerm_resource_group.aks_rg.name
+resource "azurerm_network_interface" "myweb01_nic" {
+  name                = "myweb01-nic"
+  location            = azurerm_resource_group.myweb01.location
+  resource_group_name = azurerm_resource_group.myweb01.name
 
   ip_configuration {
-    name                 = "configuration"
-    subnet_id            = azurerm_subnet.bastion_subnet.id
-    public_ip_address_id = azurerm_public_ip.example.id
+    name                          = "myweb01-ipconfig"
+    subnet_id                     = azurerm_subnet.myweb01_subnet.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.myweb01_pip.id
   }
 }
 
-resource "azurerm_public_ip" "example" {
-  name                = "example-pip"
-  location            = azurerm_resource_group.aks_rg.location
-  resource_group_name = azurerm_resource_group.aks_rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
+resource "azurerm_virtual_network" "myweb01_vnet" {
+  name                = "myweb01-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.myweb01.location
+  resource_group_name = azurerm_resource_group.myweb01.name
+}
+
+resource "azurerm_subnet" "myweb01_subnet" {
+  name                 = "myweb01-subnet"
+  resource_group_name  = azurerm_resource_group.myweb01.name
+  virtual_network_name = azurerm_virtual_network.myweb01_vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+resource "azurerm_linux_virtual_machine" "myweb01_vm" {
+  name                = "myweb01-vm"
+  resource_group_name = azurerm_resource_group.myweb01.name
+  location            = azurerm_resource_group.myweb01.location
+  size                = "Standard_D2s_v5"
+  admin_username      = var.admin_username
+  network_interface_ids = [azurerm_network_interface.myweb01_nic.id]
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
+  }
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = var.ssh_public_key
+  }
+
+  tags = var.tags
 }
