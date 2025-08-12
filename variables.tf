@@ -1,11 +1,11 @@
-variable "resource_group_name" {
-  description = "The name of the resource group to be created."
+variable "region_name" {
   type        = string
-  default     = "production-rg"
+  description = "The Azure region name"
+  default     = "centralindia"
 }
 
-variable "location" {
-  description = "The Azure region where the resource group should be created."
+variable "dns_prefix" {
   type        = string
-  default     = "uksouth"
+  description = "The DNS prefix for the AKS cluster"
+  default     = "testak01"
 }
