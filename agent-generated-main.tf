@@ -11,145 +11,78 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "rg" {
-  name     = "rg-vmprivate01"
+resource "azurerm_resource_group" "aks_rg" {
+  name     = "aks-rg"
   location = "uksouth"
 }
 
-resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-vmprivate01"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+resource "azurerm_virtual_network" "aks_vnet" {
+  name                = "aks-vnet"
+  address_space       = ["10.0.0.0/8"]
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
 }
 
-resource "azurerm_subnet" "subnet" {
-  name                 = "subnet-vmprivate01"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
+resource "azurerm_subnet" "aks_subnet" {
+  name                 = "aks-subnet"
+  resource_group_name  = azurerm_resource_group.aks_rg.name
+  virtual_network_name = azurerm_virtual_network.aks_vnet.name
+  address_prefixes     = ["10.240.0.0/16"]
 }
 
 resource "azurerm_subnet" "bastion_subnet" {
   name                 = "AzureBastionSubnet"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.2.0/24"]
+  resource_group_name  = azurerm_resource_group.aks_rg.name
+  virtual_network_name = azurerm_virtual_network.aks_vnet.name
+  address_prefixes     = ["10.241.0.0/24"]
 }
 
-resource "azurerm_bastion_host" "bastion" {
-  name                = "bastion-vmprivate01"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+resource "azurerm_kubernetes_cluster" "vmprivate01" {
+  name                = "vmprivate01"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
+  dns_prefix          = var.dns_prefix
+
+  default_node_pool {
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_DS2_v2"
+    vnet_subnet_id = azurerm_subnet.aks_subnet.id
+    min_count   = 1
+    max_count   = 5
+    zones       = ["1", "2", "3"]
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  network_profile {
+    network_plugin    = "azure"
+    network_policy    = "azure"
+    load_balancer_sku = "standard"
+    outbound_type     = "userDefinedRouting"
+  }
+
+  private_cluster_enabled = true
+}
+
+resource "azurerm_bastion_host" "example" {
+  name                = "example-bastion"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
 
   ip_configuration {
     name                 = "configuration"
     subnet_id            = azurerm_subnet.bastion_subnet.id
-    public_ip_address_id = azurerm_public_ip.bastion_public_ip.id
+    public_ip_address_id = azurerm_public_ip.example.id
   }
 }
 
-resource "azurerm_public_ip" "bastion_public_ip" {
-  name                = "bastion-public-ip"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+resource "azurerm_public_ip" "example" {
+  name                = "example-pip"
+  location            = azurerm_resource_group.aks_rg.location
+  resource_group_name = azurerm_resource_group.aks_rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-}
-
-resource "azurerm_network_interface" "nic" {
-  name                = "nic-vmprivate01"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.subnet.id
-    private_ip_address_allocation = "Dynamic"
-  }
-}
-
-resource "azurerm_linux_virtual_machine" "vm" {
-  name                = "vmprivate01"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  network_interface_ids = [azurerm_network_interface.nic.id]
-  size                = "Standard_D2s_v5"
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
-  }
-
-  admin_username = "adminuser"
-  admin_ssh_key {
-    username   = "adminuser"
-    public_key = var.ssh_public_key
-  }
-
-  zone = "1"
-}
-
-resource "azurerm_monitor_autoscale_setting" "autoscale" {
-  name                = "autoscale-vmprivate01"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  target_resource_id  = azurerm_linux_virtual_machine.vm.id
-
-  profile {
-    name = "default"
-
-    capacity {
-      minimum = 1
-      maximum = 5
-      default = 1
-    }
-
-    rule {
-      metric_trigger {
-        metric_name        = "Percentage CPU"
-        metric_resource_id = azurerm_linux_virtual_machine.vm.id
-        time_grain         = "PT1M"
-        statistic          = "Average"
-        time_window        = "PT5M"
-        time_aggregation   = "Average"
-        operator           = "GreaterThan"
-        threshold          = 80
-      }
-
-      scale_action {
-        direction = "Increase"
-        type      = "ChangeCount"
-        value     = "1"
-        cooldown  = "PT5M"
-      }
-    }
-
-    rule {
-      metric_trigger {
-        metric_name        = "Percentage CPU"
-        metric_resource_id = azurerm_linux_virtual_machine.vm.id
-        time_grain         = "PT1M"
-        statistic          = "Average"
-        time_window        = "PT5M"
-        time_aggregation   = "Average"
-        operator           = "LessThan"
-        threshold          = 20
-      }
-
-      scale_action {
-        direction = "Decrease"
-        type      = "ChangeCount"
-        value     = "1"
-        cooldown  = "PT5M"
-      }
-    }
-  }
 }

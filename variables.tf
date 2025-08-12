@@ -1,4 +1,5 @@
-variable "ssh_public_key" {
-  description = "The SSH public key for the VM."
+variable "dns_prefix" {
+  description = "The DNS prefix to use for the AKS cluster."
   type        = string
+  default     = "vmprivate01"
 }
