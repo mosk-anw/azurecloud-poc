@@ -1,7 +1,7 @@
 variable "location" {
   description = "The Azure region where the AKS cluster will be deployed."
   type        = string
-  default     = "india"
+  default     = "East US"
 }
 
 variable "resource_group_name" {
@@ -10,7 +10,7 @@ variable "resource_group_name" {
 }
 
 variable "dns_prefix" {
-  description = "The DNS prefix to use for the AKS cluster."
+  description = "The DNS prefix to use with the AKS cluster."
   type        = string
   default     = "testak01"
 }
