@@ -1,11 +1,19 @@
-variable "resource_group_name" {
-  description = "The name of the resource group."
+variable "admin_username" {
+  description = "The admin username for the Linux VM."
   type        = string
-  default     = "production-rg"
+  default     = "azureuser"
 }
 
-variable "location" {
-  description = "The Azure region where the resource group will be created."
+variable "ssh_public_key" {
+  description = "The SSH public key for the Linux VM."
   type        = string
-  default     = "UK South"
+}
+
+variable "common_tags" {
+  description = "A map of tags to assign to resources."
+  type        = map(string)
+  default     = {
+    environment = "production"
+    project     = "web-hosting"
+  }
 }
