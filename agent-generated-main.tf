@@ -1,31 +1,20 @@
-terraform {
-  required_providers {
-    azurerm = {
-      source = "hashicorp/azurerm"
-      version = ">= 2.46"
-    }
-  }
-}
-
 provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "aks_rg" {
+resource "azurerm_resource_group" "example" {
   name     = "myResourceGroup"
-  location = "East US"
+  location = "uksouth"
 }
 
-module "aks_cluster" {
-  source  = "Azure/avm-res-containerservice-managedcluster/azurerm"
-  version = "~> 0.2"
-  resource_group_name = azurerm_resource_group.aks_rg.name
-  location            = azurerm_resource_group.aks_rg.location
-  default_node_pool   = {
-    name       = "default"
-    node_count = 3
-    vm_size    = "Standard_DS2_v2"
-  }
-  name       = "testaks"
-  dns_prefix = "testaks"
+resource "azurerm_postgresql_server" "example" {
+  name                = "mydb01"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  sku_name            = "B_Gen5_1"
+  storage_mb          = 5120
+  administrator_login = "myadmin"
+  administrator_login_password = "P@ssw0rd1234!"
+  ssl_enforcement_enabled = true
+  version = "11"
 }
