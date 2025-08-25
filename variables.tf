@@ -1,10 +1,14 @@
-variable "ssh_public_key" {
-  description = "The SSH public key for the VM."
+# Variables for this Terraform configuration
+# Edit these values according to your requirements
+
+variable "resource_group_name" {
+  description = "The name of the resource group"
   type        = string
+  default     = "default-rg"
 }
 
-variable "environment" {
-  description = "The environment tag for the resources."
+variable "location" {
+  description = "The Azure region where resources will be created"
   type        = string
-  default     = "development"
+  default     = "eastus"
 }
