@@ -1,14 +1,4 @@
-# Variables for this Terraform configuration
-# Edit these values according to your requirements
-
-variable "resource_group_name" {
-  description = "The name of the resource group"
+variable "admin_ssh_public_key" {
+  description = "The SSH public key to be used for authentication"
   type        = string
-  default     = "default-rg"
-}
-
-variable "location" {
-  description = "The Azure region where resources will be created"
-  type        = string
-  default     = "eastus"
 }
