@@ -1,32 +1,26 @@
-terraform {
-  required_providers {
-    azurerm = {
-      source = "hashicorp/azurerm"
-      version = ">= 2.46"
-    }
-  }
-}
-
 provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "mycluster01" {
-  name     = "mycluster01"
+resource "azurerm_resource_group" "myresourcegroup" {
+  name     = "myResourceGroup"
   location = "uksouth"
 }
 
-module "aks_cluster" {
-  source = "Azure/avm-res-containerservice-managedcluster/azurerm"
-  version = "~> 0.2"
+resource "azurerm_kubernetes_cluster" "mycluster01" {
+  name                = "mycluster01"
+  location            = azurerm_resource_group.myresourcegroup.location
+  resource_group_name = azurerm_resource_group.myresourcegroup.name
+  dns_prefix          = "mycluster01"
 
-  name               = "myakscluster01"
-  resource_group_name = azurerm_resource_group.mycluster01.name
-  location            = azurerm_resource_group.mycluster01.location
-  dns_prefix          = "myakscluster01"
-  default_node_pool   = {
+  default_node_pool {
     name       = "default"
     node_count = 3
     vm_size    = "Standard_DS2_v2"
+    zones      = ["1", "2", "3"]
+  }
+
+  identity {
+    type = "SystemAssigned"
   }
 }
