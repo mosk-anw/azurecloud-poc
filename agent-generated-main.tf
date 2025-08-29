@@ -12,6 +12,6 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "example" {
-  name     = "rgtest123"
+  name     = "test4567rg"
   location = "uksouth"
 }
