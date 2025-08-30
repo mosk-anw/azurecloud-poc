@@ -7,6 +7,7 @@ on:
   pull_request:
     branches: [main, develop]
     paths: ["live_terraform_project/**"]
+  workflow_dispatch:
   schedule:
     # Drift detection every 6 hours
     - cron: "0 */6 * * *"
@@ -78,7 +79,6 @@ jobs:
       - name: 🔒 Security Scan
         run: |
           cd live_terraform_project
-          # Install and run security tools
           pip install checkov
           checkov -d . --framework terraform || true
 
@@ -100,7 +100,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const output = `
+            const output = \`
             #### 🏗️ Terraform Plan Results - ${{ needs.detect-environment.outputs.environment }}
 
             **Status**: ${{ steps.plan.outcome == 'success' && '✅ Success' || '❌ Failed' }}
@@ -109,9 +109,9 @@ jobs:
 
             <details><summary>📊 Show Plan Details</summary>
 
-            \`\`\`
+            \\\`\\\`\\\`
             ${{ steps.plan.outputs.stdout }}
-            \`\`\`
+            \\\`\\\`\\\`
 
             </details>
 
@@ -120,7 +120,7 @@ jobs:
             - 🔍 Security scan completed
             - 💰 Cost estimation included
             - 📋 Ready for deployment
-            `;
+            \`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -194,7 +194,6 @@ jobs:
 
           if [ $? -eq 2 ]; then
             echo "🚨 DRIFT DETECTED in ${{ matrix.environment }}"
-            # Could create GitHub issue or send alert here
           else
             echo "✅ No drift detected in ${{ matrix.environment }}"
           fi
