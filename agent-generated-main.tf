@@ -12,7 +12,8 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "example" {
-  name     = "rg-test-demo"
-  location = var.location
+resource "azurerm_resource_group" "new_resource_group" {
+  name     = "myResourceGroup"
+  location = "uksouth"
+  tags     = var.tags
 }

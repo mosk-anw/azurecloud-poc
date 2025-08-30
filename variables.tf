@@ -1,5 +1,5 @@
-variable "location" {
-  description = "The location where the resource group will be created"
-  type        = string
-  default     = "East US"
+variable "tags" {
+  description = "A map of tags to assign to the resources"
+  type        = map(string)
+  default     = {}
 }
