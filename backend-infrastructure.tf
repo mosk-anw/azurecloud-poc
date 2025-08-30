@@ -19,7 +19,7 @@ resource "azurerm_storage_account" "terraform_state_dev" {
   location                 = azurerm_resource_group.terraform_state_dev.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  
+
   tags = {
     Purpose     = "terraform-state"
     Environment = "development"
@@ -50,7 +50,7 @@ resource "azurerm_storage_account" "terraform_state_staging" {
   location                 = azurerm_resource_group.terraform_state_staging.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  
+
   tags = {
     Purpose     = "terraform-state"
     Environment = "staging"
@@ -80,11 +80,11 @@ resource "azurerm_storage_account" "terraform_state_prod" {
   resource_group_name      = azurerm_resource_group.terraform_state_prod.name
   location                 = azurerm_resource_group.terraform_state_prod.location
   account_tier             = "Standard"
-  account_replication_type = "ZRS"  # Higher redundancy for production
-  
+  account_replication_type = "ZRS" # Higher redundancy for production
+
   tags = {
     Purpose     = "terraform-state"
-    Environment = "production" 
+    Environment = "production"
     ManagedBy   = "gitops-workflow"
   }
 }

@@ -3,14 +3,14 @@
 
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
   }
-  
+
 }
 
 provider "azurerm" {
@@ -21,10 +21,10 @@ provider "azurerm" {
 module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1.0"
-  
+
   name     = var.resource_group_name
   location = var.location
-  
+
   tags = {
     Environment = var.environment
     Project     = "gitops-e2e-demo"
@@ -38,21 +38,21 @@ module "resource_group" {
 module "storage_account" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "~> 0.1.0"
-  
+
   name                = var.storage_account_name
   resource_group_name = module.resource_group.name
-  location           = var.location
-  
+  location            = var.location
+
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  
+
   # Enable secure defaults
   enable_https_traffic_only = true
-  min_tls_version          = "TLS1_2"
-  
+  min_tls_version           = "TLS1_2"
+
   # Disable public access for security
   public_network_access_enabled = false
-  
+
   tags = {
     Environment = var.environment
     Project     = "gitops-e2e-demo"
@@ -68,6 +68,6 @@ resource "azurerm_storage_container" "demo" {
   name                  = "demo-container"
   storage_account_name  = module.storage_account.name
   container_access_type = "private"
-  
+
   depends_on = [module.storage_account]
 }
