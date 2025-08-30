@@ -1,0 +1,143 @@
+# GitOps Configuration for Remote State Manager
+# This file demonstrates how to configure different environments
+
+# Environment: Development
+environments:
+  development:
+    branch_pattern: "feature/*"
+    auto_deploy: true
+    state_config:
+      resource_group: "rg-terraform-state-dev"
+      storage_account: "tfstatedev"
+      container: "tfstate"
+      key: "dev/terraform.tfstate"
+    terraform_vars:
+      environment: "dev"
+      instance_count: 1
+      sku_tier: "Basic"
+    approval_required: false
+
+  # Environment: Staging  
+  staging:
+    branch_pattern: "develop"
+    auto_deploy: true
+    state_config:
+      resource_group: "rg-terraform-state-staging"
+      storage_account: "tfstatestaging"
+      container: "tfstate"
+      key: "staging/terraform.tfstate"
+    terraform_vars:
+      environment: "staging"
+      instance_count: 2
+      sku_tier: "Standard"
+    approval_required: true
+    approvers:
+      - "DevOps-Team"
+      - "Infrastructure-Team"
+
+  # Environment: Production
+  production:
+    branch_pattern: "main"
+    auto_deploy: false
+    state_config:
+      resource_group: "rg-terraform-state-prod"
+      storage_account: "tfstateprod"
+      container: "tfstate"
+      key: "prod/terraform.tfstate"
+    terraform_vars:
+      environment: "prod"
+      instance_count: 3
+      sku_tier: "Premium"
+    approval_required: true
+    approvers:
+      - "Infrastructure-Team"
+      - "Security-Team"
+      - "Platform-Team"
+    change_window:
+      - "02:00-04:00 UTC"  # Maintenance window
+
+# GitOps Configuration
+gitops:
+  # Drift detection schedule
+  drift_detection:
+    enabled: true
+    schedule: "0 */6 * * *"  # Every 6 hours
+    environments: ["staging", "production"]
+    
+  # Automatic remediation
+  auto_remediation:
+    enabled: true
+    environments: ["development", "staging"]
+    max_retries: 3
+    
+  # Notifications
+  notifications:
+    slack_webhook: "${{ secrets.SLACK_WEBHOOK }}"
+    teams_webhook: "${{ secrets.TEAMS_WEBHOOK }}"
+    email_group: "devops@company.com"
+    
+  # Security scanning
+  security:
+    terraform_compliance: true
+    checkov_scan: true
+    tfsec_scan: true
+    policy_as_code: true
+
+# Remote State Manager Integration
+remote_state:
+  # Backend configuration template
+  backend_template: |
+    terraform {
+      backend "azurerm" {
+        resource_group_name  = "{{ .state_config.resource_group }}"
+        storage_account_name = "{{ .state_config.storage_account }}"
+        container_name       = "{{ .state_config.container }}"
+        key                  = "{{ .state_config.key }}"
+      }
+    }
+  
+  # State locking configuration
+  state_locking:
+    enabled: true
+    timeout: "10m"
+    
+  # Backup configuration
+  backup:
+    enabled: true
+    retention_days: 90
+    versioning: true
+    
+  # Access control
+  rbac:
+    enabled: true
+    azure_ad_integration: true
+    
+# Terraform Configuration
+terraform:
+  version: "1.5.0"
+  required_providers:
+    azurerm:
+      source: "hashicorp/azurerm"
+      version: "~>3.0"
+      
+# Quality Gates
+quality_gates:
+  # Plan requirements
+  plan:
+    - name: "terraform_validate"
+      required: true
+    - name: "security_scan"
+      required: true
+    - name: "cost_estimation"
+      required: true
+      
+  # Apply requirements  
+  apply:
+    - name: "peer_review"
+      required: true
+      min_approvals: 2
+    - name: "compliance_check"
+      required: true
+    - name: "change_window"
+      required: true
+      environments: ["production"]
