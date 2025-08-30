@@ -1,17 +1,23 @@
 variable "resource_group_name" {
-  description = "The name of the resource group"
+  description = "Name of the resource group"
   type        = string
-  default     = "production-rg"
+  default     = "rg-remote-state-demo"
+}
+
+variable "storage_account_name" {
+  description = "Name of the storage account (must be globally unique)"
+  type        = string
+  default     = "stremotestatedemo001"
 }
 
 variable "location" {
-  description = "The Azure region where the resource group should be created"
+  description = "Azure region"
   type        = string
-  default     = "uksouth"
+  default     = "East US"
 }
 
-variable "tags" {
-  description = "A map of tags to assign to the resource group"
-  type        = map(string)
-  default     = {}
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "demo"
 }
