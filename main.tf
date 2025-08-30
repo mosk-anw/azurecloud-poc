@@ -11,10 +11,6 @@ terraform {
     }
   }
   
-  # Backend configuration - dynamically set by environment
-  backend "azurerm" {
-    # Configured via backend-{environment}.tf files
-  }
 }
 
 provider "azurerm" {
