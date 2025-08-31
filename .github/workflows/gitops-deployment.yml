@@ -2,10 +2,10 @@ name: GitOps Infrastructure Deployment
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, staging, develop]
     paths: ["live_terraform_project/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, staging, develop]
     paths: ["live_terraform_project/**"]
   workflow_dispatch:
   schedule:
@@ -34,6 +34,20 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "backend_file=backend-production.tf" >> $GITHUB_OUTPUT
+            echo "auto_deploy=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "backend_file=backend-staging.tf" >> $GITHUB_OUTPUT
+            echo "auto_deploy=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "backend_file=backend-development.tf" >> $GITHUB_OUTPUT
+            echo "auto_deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "backend_file=backend-development.tf" >> $GITHUB_OUTPUT
+            echo "auto_deploy=true" >> $GITHUB_OUTPUT
+          file=backend-production.tf" >> $GITHUB_OUTPUT
             echo "auto_deploy=false" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
             echo "environment=staging" >> $GITHUB_OUTPUT
@@ -138,7 +152,7 @@ jobs:
     if: |
       github.event_name != 'schedule' && 
       needs.terraform-plan.result == 'success' && 
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/develop')
     environment:
       name: ${{ needs.detect-environment.outputs.environment }}
       url: https://portal.azure.com
