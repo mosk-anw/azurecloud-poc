@@ -66,7 +66,7 @@ jobs:
       - name: 🔧 Configure Backend
         run: |
           cd live_terraform_project
-          cp ${{ needs.detect-environment.outputs.backend_file }} backend.tf
+          cp ../configs/${{ needs.detect-environment.outputs.backend_file }} backend.tf
 
       - name: 🚀 Terraform Init
         run: |
@@ -157,7 +157,7 @@ jobs:
       - name: 🔧 Configure Backend
         run: |
           cd live_terraform_project
-          cp ${{ needs.detect-environment.outputs.backend_file }} backend.tf
+          cp ../configs/${{ needs.detect-environment.outputs.backend_file }} backend.tf
 
       - name: 🚀 Terraform Apply
         run: |
@@ -194,7 +194,7 @@ jobs:
       - name: 🔍 Check for Drift
         run: |
           cd live_terraform_project
-          cp backend-${{ matrix.environment }}.tf backend.tf
+          cp ../configs/backend-${{ matrix.environment }}.tf backend.tf
           terraform init
           terraform plan -detailed-exitcode
 
