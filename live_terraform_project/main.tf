@@ -2,17 +2,17 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 2.46"
+      version = "~> 3.0"
     }
   }
-  required_version = ">= 0.13"
+  required_version = ">= 1.0.0"
 }
 
 provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "example" {
-  name     = "rg786"
+resource "azurerm_resource_group" "example_rg" {
+  name     = "rgagenttest123"
   location = "UK South"
 }
