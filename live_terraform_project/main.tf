@@ -12,9 +12,7 @@ provider "azurerm" {
   features {}
 }
 
-# Resource Group
-resource "azurerm_resource_group" "my_resource_group" {
-  name     = "my-resource-group-uk-south"
+resource "azurerm_resource_group" "example" {
+  name     = "testrg555"
   location = "UK South"
-  tags     = var.tags
 }
