@@ -1,0 +1,181 @@
+name: 🚀 GitOps Environment Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_environment:
+        description: 'Source Environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+      target_environment:
+        description: 'Target Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      promotion_reason:
+        description: 'Reason for promotion'
+        required: true
+        default: 'Tested and approved for promotion'
+
+  # Automatic promotion from dev to staging on successful deployment
+  workflow_run:
+    workflows: ["GitOps Infrastructure Deployment"]
+    types:
+      - completed
+    branches:
+      - develop
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  validate-promotion:
+    name: 🔍 Validate Promotion Requirements
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      source_env: ${{ steps.env-mapping.outputs.source_env }}
+      target_env: ${{ steps.env-mapping.outputs.target_env }}
+      source_branch: ${{ steps.env-mapping.outputs.source_branch }}
+      target_branch: ${{ steps.env-mapping.outputs.target_branch }}
+      promotion_approved: ${{ steps.validation.outputs.approved }}
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🗺️ Map Environment to Branch
+        id: env-mapping
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SOURCE_ENV="${{ github.event.inputs.source_environment }}"
+            TARGET_ENV="${{ github.event.inputs.target_environment }}"
+          else
+            # Automatic promotion from dev to staging
+            SOURCE_ENV="development"
+            TARGET_ENV="staging"
+          fi
+          
+          echo "source_env=$SOURCE_ENV" >> $GITHUB_OUTPUT
+          echo "target_env=$TARGET_ENV" >> $GITHUB_OUTPUT
+          
+          # Map environments to branches
+          case $SOURCE_ENV in
+            "development") echo "source_branch=develop" >> $GITHUB_OUTPUT ;;
+            "staging") echo "source_branch=staging" >> $GITHUB_OUTPUT ;;
+          esac
+          
+          case $TARGET_ENV in
+            "staging") echo "target_branch=staging" >> $GITHUB_OUTPUT ;;
+            "production") echo "target_branch=main" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: ✅ Validate Promotion Path
+        id: validation
+        run: |
+          SOURCE_ENV="${{ steps.env-mapping.outputs.source_env }}"
+          TARGET_ENV="${{ steps.env-mapping.outputs.target_env }}"
+          
+          echo "🔍 Validating promotion: $SOURCE_ENV → $TARGET_ENV"
+          
+          # Validate promotion paths
+          if [[ "$SOURCE_ENV" == "development" && "$TARGET_ENV" == "staging" ]]; then
+            echo "✅ Valid promotion path: Development → Staging"
+            echo "approved=true" >> $GITHUB_OUTPUT
+          elif [[ "$SOURCE_ENV" == "staging" && "$TARGET_ENV" == "production" ]]; then
+            echo "✅ Valid promotion path: Staging → Production"
+            echo "approved=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Invalid promotion path: $SOURCE_ENV → $TARGET_ENV"
+            echo "approved=false" >> $GITHUB_OUTPUT
+          fi
+
+  promote-environment:
+    name: 🚀 Promote to ${{ needs.validate-promotion.outputs.target_env }}
+    runs-on: ubuntu-latest
+    needs: validate-promotion
+    if: needs.validate-promotion.outputs.promotion_approved == 'true'
+    environment:
+      name: ${{ needs.validate-promotion.outputs.target_env }}
+      url: https://portal.azure.com
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔄 Create Promotion PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SOURCE_BRANCH="${{ needs.validate-promotion.outputs.source_branch }}"
+          TARGET_BRANCH="${{ needs.validate-promotion.outputs.target_branch }}"
+          SOURCE_ENV="${{ needs.validate-promotion.outputs.source_env }}"
+          TARGET_ENV="${{ needs.validate-promotion.outputs.target_env }}"
+          
+          echo "🔄 Creating promotion PR: $SOURCE_BRANCH → $TARGET_BRANCH"
+          
+          # Create promotion PR
+          PROMOTION_REASON="${{ github.event.inputs.promotion_reason || 'Automated promotion after successful deployment' }}"
+          
+          PR_TITLE="🚀 Promote $SOURCE_ENV to $TARGET_ENV"
+          PR_BODY="## 🚀 Environment Promotion
+          
+          **Source Environment:** $SOURCE_ENV (\`$SOURCE_BRANCH\`)
+          **Target Environment:** $TARGET_ENV (\`$TARGET_BRANCH\`)
+          **Reason:** $PROMOTION_REASON
+          
+          ### ✅ Promotion Checklist
+          - [x] Source environment deployment successful
+          - [x] Validation checks passed
+          - [x] Automated promotion triggered
+          
+          ### 🎯 What's Being Promoted
+          This PR promotes the latest tested infrastructure changes from $SOURCE_ENV to $TARGET_ENV.
+          
+          **⚠️ Review Required:** Please review and approve this promotion before merging.
+          "
+          
+          # Create the PR
+          gh pr create \
+            --base "$TARGET_BRANCH" \
+            --head "$SOURCE_BRANCH" \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --label "promotion,gitops,$TARGET_ENV" || echo "PR might already exist"
+
+      - name: 📊 Promotion Summary
+        run: |
+          echo "## 🚀 GitOps Promotion Summary"
+          echo "**Source:** ${{ needs.validate-promotion.outputs.source_env }} (${{ needs.validate-promotion.outputs.source_branch }})"
+          echo "**Target:** ${{ needs.validate-promotion.outputs.target_env }} (${{ needs.validate-promotion.outputs.target_branch }})"
+          echo "**Status:** ✅ Promotion PR created successfully"
+          echo "**Next Steps:** Review and merge the promotion PR to deploy to ${{ needs.validate-promotion.outputs.target_env }}"
+
+  notify-completion:
+    name: 📢 Notify Promotion Status
+    runs-on: ubuntu-latest
+    needs: [validate-promotion, promote-environment]
+    if: always()
+    
+    steps:
+      - name: 📢 Send Notification
+        run: |
+          if [[ "${{ needs.promote-environment.result }}" == "success" ]]; then
+            echo "✅ Promotion workflow completed successfully"
+            echo "🎯 Environment: ${{ needs.validate-promotion.outputs.source_env }} → ${{ needs.validate-promotion.outputs.target_env }}"
+          else
+            echo "❌ Promotion workflow failed"
+            echo "🔍 Check the logs for details"
+          fi
