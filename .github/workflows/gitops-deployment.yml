@@ -47,16 +47,6 @@ jobs:
             echo "environment=development" >> $GITHUB_OUTPUT
             echo "backend_file=backend-development.tf" >> $GITHUB_OUTPUT
             echo "auto_deploy=true" >> $GITHUB_OUTPUT
-          file=backend-production.tf" >> $GITHUB_OUTPUT
-            echo "auto_deploy=false" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "backend_file=backend-staging.tf" >> $GITHUB_OUTPUT
-            echo "auto_deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "environment=development" >> $GITHUB_OUTPUT
-            echo "backend_file=backend-development.tf" >> $GITHUB_OUTPUT
-            echo "auto_deploy=true" >> $GITHUB_OUTPUT
           fi
 
   terraform-plan:
@@ -123,7 +113,7 @@ jobs:
             **Environment**: ${{ needs.detect-environment.outputs.environment }}
             **Auto Deploy**: ${{ needs.detect-environment.outputs.auto_deploy }}
 
-            <details><summary>📊 Show Plan Details</summary>
+            <details><summary>�� Show Plan Details</summary>
 
             \\\`\\\`\\\`
             ${{ steps.plan.outputs.stdout }}
@@ -192,7 +182,7 @@ jobs:
     if: github.event_name == 'schedule'
     strategy:
       matrix:
-        environment: [staging, production]
+        environment: [development, staging, production]
 
     steps:
       - name: 📥 Checkout Repository
