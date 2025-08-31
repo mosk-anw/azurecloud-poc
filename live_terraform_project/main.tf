@@ -12,11 +12,7 @@ provider "azurerm" {
   features {}
 }
 
-# Create Resource Group using AVM
-module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.2.0"
-
-  name     = var.resource_group_name
-  location = var.location
+resource "azurerm_resource_group" "example" {
+  name     = "rg-devops-agent-test123"
+  location = "UK South"
 }
