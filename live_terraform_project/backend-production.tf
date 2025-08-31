@@ -1,8 +1,8 @@
 terraform {
   backend "azurerm" {
     resource_group_name  = "rg-terraform-state-prod"
-    storage_account_name = "sttfstateprod"
+    storage_account_name = "tfstateprod123"
     container_name       = "tfstate"
-    key                  = "production.terraform.tfstate"
+    key                  = "prod/terraform.tfstate"
   }
 }
