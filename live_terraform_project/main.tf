@@ -12,7 +12,7 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "myfirstrg786" {
-  name     = "myfirstrg786"
+resource "azurerm_resource_group" "example" {
+  name     = "rg786"
   location = "UK South"
 }
