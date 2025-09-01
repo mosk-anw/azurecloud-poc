@@ -14,4 +14,4 @@ provider "azurerm" {
 resource "azurerm_resource_group" "example" {
   name     = "devops-agent-test-rg01"
   location = "UK South"
-}
+}# Test trigger
