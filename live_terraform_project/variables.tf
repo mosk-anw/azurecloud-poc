@@ -1,11 +1,17 @@
 variable "resource_group_name" {
-  description = "The name of the resource group"
+  description = "Name of the resource group"
   type        = string
-  default     = "rg-devops-ai-uksouth"
+  default     = "e2e-test-avm-rg"
 }
 
 variable "location" {
-  description = "The Azure region where resources will be created"
+  description = "Azure region for resources"
   type        = string
-  default     = "UK South"
+  default     = "East US"
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "dev"
 }
