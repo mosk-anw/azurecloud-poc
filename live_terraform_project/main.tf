@@ -1,20 +1,22 @@
 terraform {
   required_providers {
     azurerm = {
-      source = "hashicorp/azurerm"
-      version = ">= 2.46"
+      source  = "hashicorp/azurerm"
+      version = "~> 2.46"
     }
   }
+  required_version = ">= 0.13"
 }
 
 provider "azurerm" {
   features {}
 }
 
-module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.1"
-
-  name     = "fixed-test-rg"
-  location = "West Europe"
+# Create Resource Group
+resource "azurerm_resource_group" "example_rg" {
+  name     = "testrg01"
+  location = "UK South"
+  tags = {
+    env = "test"
+  }
 }
