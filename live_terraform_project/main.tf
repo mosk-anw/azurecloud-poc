@@ -18,3 +18,4 @@ module "resource_group" {
   name     = "fixed-test-rg"
   location = "West Europe"
 }
+# GitOps workflow trigger test
