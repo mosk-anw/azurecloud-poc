@@ -1,0 +1,179 @@
+name: GitOps Infrastructure Deployment
+
+on:
+  pull_request:
+    branches: [develop, staging, main]
+    paths: ["live_terraform_project/**"]
+  push:
+    branches: [develop, staging, main]
+    paths: ["live_terraform_project/**"]
+
+env:
+  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  detect_environment:
+    name: 🔍 Detect Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.detect.outputs.environment }}
+      tf_workspace: ${{ steps.detect.outputs.tf_workspace }}
+    steps:
+      - name: Detect Environment from Branch
+        id: detect
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.base_ref }}" == "main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "tf_workspace=prod" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]] || [[ "${{ github.base_ref }}" == "staging" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "tf_workspace=staging" >> $GITHUB_OUTPUT
+          else
+            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "tf_workspace=dev" >> $GITHUB_OUTPUT
+          fi
+
+  terraform_plan:
+    name: 📋 Terraform Plan (${{ needs.detect_environment.outputs.environment }})
+    runs-on: ubuntu-latest
+    needs: detect_environment
+    defaults:
+      run:
+        working-directory: live_terraform_project
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: 🔑 Configure Azure Credentials
+        run: |
+          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+
+      - name: 🏗️ Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=rg-terraform-state-dev" \
+            -backend-config="storage_account_name=sttfstatedev12345678" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=terraform.tfstate"
+
+      - name: 🔍 Terraform Validate
+        run: terraform validate
+
+      - name: 📋 Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var="environment=${{ needs.detect_environment.outputs.tf_workspace }}" \
+            -no-color -out=tfplan
+        continue-on-error: true
+
+      - name: 📝 Update PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `
+            ## 🏗️ Terraform Plan Results
+            
+            **Environment**: \`${{ needs.detect_environment.outputs.environment }}\`
+            **Workspace**: \`${{ needs.detect_environment.outputs.tf_workspace }}\`
+            
+            ### Plan Status: ${{ steps.plan.outcome == 'success' && '✅ Success' || '❌ Failed' }}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: ❌ Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  terraform_apply:
+    name: 🚀 Terraform Apply (${{ needs.detect_environment.outputs.environment }})
+    runs-on: ubuntu-latest
+    needs: [detect_environment, terraform_plan]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main')
+    environment: ${{ needs.detect_environment.outputs.environment }}
+    defaults:
+      run:
+        working-directory: live_terraform_project
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: 🔑 Configure Azure Credentials
+        run: |
+          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+
+      - name: ��️ Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=rg-terraform-state-dev" \
+            -backend-config="storage_account_name=sttfstatedev12345678" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=terraform.tfstate"
+
+      - name: 🚀 Terraform Apply
+        run: |
+          terraform apply \
+            -var="environment=${{ needs.detect_environment.outputs.tf_workspace }}" \
+            -auto-approve
+
+  drift_detection:
+    name: 🔍 Drift Detection
+    runs-on: ubuntu-latest
+    needs: [detect_environment, terraform_apply]
+    if: always() && needs.terraform_apply.result == 'success'
+    defaults:
+      run:
+        working-directory: live_terraform_project
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: 🔑 Configure Azure Credentials
+        run: |
+          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "ARM_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" >> $GITHUB_ENV
+          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+
+      - name: 🏗️ Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=rg-terraform-state-dev" \
+            -backend-config="storage_account_name=sttfstatedev12345678" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=terraform.tfstate"
+
+      - name: 🔍 Check for Drift
+        run: terraform plan -detailed-exitcode
