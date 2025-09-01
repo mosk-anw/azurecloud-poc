@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      version = "~> 2.0"
+      version = ">= 2.46"
     }
   }
 }
@@ -11,7 +11,10 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "test_rg" {
-  name     = "test-rg"
-  location = "East US"
+module "resource_group" {
+  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version = "~> 0.1"
+
+  name     = "fixed-test-rg"
+  location = "West Europe"
 }
