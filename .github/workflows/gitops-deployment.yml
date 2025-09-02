@@ -138,7 +138,7 @@ jobs:
         # Remove other backend files to avoid conflicts
         rm -f backend-staging.tf backend-production.tf
         # Copy development backend as the active backend
-        cp backend-development.tf backend.tf
+        mv backend-development.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -180,7 +180,7 @@ jobs:
     - name: Setup backend for development
       run: |
         rm -f backend-staging.tf backend-production.tf
-        cp backend-development.tf backend.tf
+        mv backend-development.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -210,7 +210,7 @@ jobs:
     - name: Setup backend for staging
       run: |
         rm -f backend-development.tf backend-production.tf
-        cp backend-staging.tf backend.tf
+        mv backend-staging.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -251,7 +251,7 @@ jobs:
     - name: Setup backend for staging
       run: |
         rm -f backend-development.tf backend-production.tf
-        cp backend-staging.tf backend.tf
+        mv backend-staging.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -281,7 +281,7 @@ jobs:
     - name: Setup backend for production
       run: |
         rm -f backend-development.tf backend-staging.tf
-        cp backend-production.tf backend.tf
+        mv backend-production.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -322,7 +322,7 @@ jobs:
     - name: Setup backend for production
       run: |
         rm -f backend-development.tf backend-staging.tf
-        cp backend-production.tf backend.tf
+        mv backend-production.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -356,15 +356,15 @@ jobs:
         case "${{ matrix.environment }}" in
           development)
             rm -f backend-staging.tf backend-production.tf
-            cp backend-development.tf backend.tf
+            mv backend-development.tf backend.tf
             ;;
           staging)
             rm -f backend-development.tf backend-production.tf
-            cp backend-staging.tf backend.tf
+            mv backend-staging.tf backend.tf
             ;;
           production)
             rm -f backend-development.tf backend-staging.tf
-            cp backend-production.tf backend.tf
+            mv backend-production.tf backend.tf
             ;;
         esac
 
