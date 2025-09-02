@@ -118,11 +118,7 @@ jobs:
     name: Plan Development
     runs-on: ubuntu-latest
     needs: validate
-<<<<<<< HEAD
-    if: github.ref == \'refs/heads/develop\' || (github.event_name == \'pull_request\' && github.base_ref == \'develop\')
-=======
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'pull_request' && github.base_ref == 'develop')
->>>>>>> develop
     environment: development
     defaults:
       run:
@@ -160,11 +156,7 @@ jobs:
     name: Deploy Development
     runs-on: ubuntu-latest
     needs: plan-development
-<<<<<<< HEAD
-    if: github.ref == \'refs/heads/develop\' && github.event_name == \'push\'
-=======
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
->>>>>>> develop
     environment: development
     defaults:
       run:
@@ -199,13 +191,8 @@ jobs:
   plan-staging:
     name: Plan Staging
     runs-on: ubuntu-latest
-<<<<<<< HEAD
-    needs: deploy-development
-    if: github.ref == \'refs/heads/develop\' && github.event_name == \'push\'
-=======
     needs: validate
     if: github.ref == \'refs/heads/staging\' && github.event_name == \'push\'
->>>>>>> develop
     environment: staging
     defaults:
       run:
@@ -277,11 +264,7 @@ jobs:
     name: Plan Production
     runs-on: ubuntu-latest
     needs: deploy-staging
-<<<<<<< HEAD
-    if: github.ref == \'refs/heads/staging\' && github.event_name == \'push\'
-=======
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
->>>>>>> develop
     environment: production
     defaults:
       run:
