@@ -77,24 +77,36 @@ jobs:
       if: github.event_name == 'pull_request'
       with:
         script: |
+          const initStatus = '${{ steps.init.outcome }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          const validateStatus = '${{ steps.validate.outcome }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          const fmtStatus = '${{ steps.fmt.outcome }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          
+          const allPassed = '${{ steps.init.outcome }}' === 'success' && 
+                           '${{ steps.validate.outcome }}' === 'success' && 
+                           '${{ steps.fmt.outcome }}' === 'success';
+          
+          const summary = allPassed ? 
+            '🎉 **All checks passed!** Ready for deployment.' : 
+            '⚠️ **Some checks failed.** Please review and fix before merging.';
+
           const output = `## 🧪 Terraform Validation Results
           
           ### 🏗️ Terraform Init
           \`\`\`
-          ${{ steps.init.outcome == 'success' ? '✅ SUCCESS' : '❌ FAILED' }}
+          ${initStatus}
           \`\`\`
 
           ### ✅ Terraform Validate  
           \`\`\`
-          ${{ steps.validate.outcome == 'success' ? '✅ SUCCESS' : '❌ FAILED' }}
+          ${validateStatus}
           \`\`\`
 
           ### 🎨 Terraform Format
           \`\`\`
-          ${{ steps.fmt.outcome == 'success' ? '✅ SUCCESS' : '❌ FAILED' }}
+          ${fmtStatus}
           \`\`\`
 
-          ${{ steps.init.outcome == 'success' && steps.validate.outcome == 'success' && steps.fmt.outcome == 'success' ? '🎉 **All checks passed!** Ready for deployment.' : '⚠️ **Some checks failed.** Please review and fix before merging.' }}`;
+          ${summary}`;
 
           github.rest.issues.createComment({
             issue_number: context.issue.number,
