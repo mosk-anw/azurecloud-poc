@@ -12,12 +12,13 @@ provider "azurerm" {
   features {}
 }
 
+# Create Resource Group using AVM
 module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "testrg"
-  location = "East US"
+  name     = "testeurop"
+  location = "westeurope"
 
   tags = {
     "environment" = "demo"
