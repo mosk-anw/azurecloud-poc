@@ -1,14 +1,17 @@
-# Variables for this Terraform configuration
-# Edit these values according to your requirements
-
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string
-  default     = "default-rg"
+  default     = "testrg"
 }
 
 variable "location" {
-  description = "The Azure region where resources will be created"
+  description = "The location for the resource group"
   type        = string
-  default     = "eastus"
+  default     = "East US"
+}
+
+variable "tags" {
+  description = "A map of tags to assign to the resource group"
+  type        = map(string)
+  default     = {}
 }
