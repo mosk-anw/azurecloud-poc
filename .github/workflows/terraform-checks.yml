@@ -3,6 +3,7 @@ name: Terraform Checks
 on:
   pull_request:
     branches: [ main, staging, develop ]
+    paths: ["live_terraform_project/**"]
 
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -13,6 +14,9 @@ env:
 jobs:
   terraform_checks:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: live_terraform_project
 
     steps:
     - name: Checkout code
@@ -21,60 +25,83 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: 1.6.0  # Fixed version to avoid compatibility issues
+        terraform_version: 1.9.7
 
-    - name: 🔧 Setup Backend Configuration
+    - name: Setup Backend Configuration for Validation
       run: |
-        echo "Setting up backend configuration for development environment"
-        cp configs/backend-development.tf backend.tf
-        echo "Backend configuration:"
+        echo "Setting up backend configuration for validation..."
+        mkdir -p ../temp_backends
+        mv backend-*.tf ../temp_backends/ || true
+        cat > backend.tf << 'BACKEND_EOF'
+        terraform {
+          backend "azurerm" {}
+        }
+        BACKEND_EOF
+        echo "Backend configuration for validation:"
         cat backend.tf
 
-    - name: 🏗️ Terraform Init
+    - name: Terraform Init
       id: init
       run: |
         echo "Initializing Terraform with backend configuration..."
-        terraform init -backend=false  # Skip backend for validation
+        terraform init -backend=false
       continue-on-error: true
 
-    - name: ✅ Terraform Validate
+    - name: Terraform Validate
       id: validate  
       run: |
         echo "Validating Terraform configuration..."
         terraform validate -no-color
       continue-on-error: true
 
-    - name: 🎨 Terraform Format Check
+    - name: Terraform Format Check
       id: fmt
       run: |
         echo "Checking Terraform formatting..."
         terraform fmt -check=true -diff
       continue-on-error: true
 
-    - name: 📊 Comment PR with Results
+    - name: Cleanup validation backend
+      run: |
+        rm -f backend.tf
+        mv ../temp_backends/backend-*.tf . || true
+        rmdir ../temp_backends || true
+
+    - name: Comment PR with Results
       uses: actions/github-script@v7
       if: github.event_name == 'pull_request'
       with:
         script: |
+          const initStatus = '${{ steps.init.outcome }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          const validateStatus = '${{ steps.validate.outcome }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          const fmtStatus = '${{ steps.fmt.outcome }}' === 'success' ? '✅ SUCCESS' : '❌ FAILED';
+          
+          const allPassed = '${{ steps.init.outcome }}' === 'success' && 
+                           '${{ steps.validate.outcome }}' === 'success' && 
+                           '${{ steps.fmt.outcome }}' === 'success';
+          
+          const summary = allPassed ? 
+            '🎉 **All checks passed!** Ready for deployment.' : 
+            '⚠️ **Some checks failed.** Please review and fix before merging.';
+
           const output = `## 🧪 Terraform Validation Results
           
           ### 🏗️ Terraform Init
           \`\`\`
-          ${{ steps.init.outcome == 'success' ? '✅ SUCCESS' : '❌ FAILED' }}
+          ${initStatus}
           \`\`\`
 
           ### ✅ Terraform Validate  
           \`\`\`
-          ${{ steps.validate.outcome == 'success' ? '✅ SUCCESS' : '❌ FAILED' }}
+          ${validateStatus}
           \`\`\`
 
           ### 🎨 Terraform Format
           \`\`\`
-          ${{ steps.fmt.outcome == 'success' ? '✅ SUCCESS' : '❌ FAILED' }}
+          ${fmtStatus}
           \`\`\`
 
-          ${{ steps.init.outcome == 'success' && steps.validate.outcome == 'success' && steps.fmt.outcome == 'success' ? '🎉 **All checks passed!** Ready for deployment.' : '⚠️ **Some checks failed.** Please review and fix before merging.' }}
-          `;
+          ${summary}`;
 
           github.rest.issues.createComment({
             issue_number: context.issue.number,
