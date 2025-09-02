@@ -13,6 +13,6 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "example" {
-  name     = "devops-ai-test-rg-111"
+  name     = "devops-ai-test-rg-222"
   location = "uksouth"
 }
