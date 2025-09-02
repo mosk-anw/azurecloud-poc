@@ -16,8 +16,8 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "testeurop"
-  location = "westeurope"
+  name     = "testrg"
+  location = "East US"
 
   tags = {
     "environment" = "demo"
