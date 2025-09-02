@@ -1,0 +1,111 @@
+name: Terraform CI - Validation & Planning
+
+on:
+  pull_request:
+    branches: [develop, staging, main]
+    paths: ["live_terraform_project/**"]
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch for validation'
+        required: true
+        default: 'develop'
+        type: choice
+        options:
+        - develop
+        - staging
+        - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  security-events: write
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Checkov Security Scan
+      id: checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: live_terraform_project/
+        framework: terraform
+        output_format: sarif
+        output_file_path: reports/results.sarif
+        config_file: .checkov.yml
+        download_external_modules: true
+        
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: reports/results.sarif
+
+  validate-terraform:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: live_terraform_project
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.7
+
+    - name: Terraform Format Check
+      id: fmt
+      run: terraform fmt -check=true
+      continue-on-error: true
+
+    - name: Terraform Format Fix (if needed)
+      if: steps.fmt.outcome == 'failure'
+      run: |
+        echo "🔧 Auto-fixing Terraform formatting..."
+        terraform fmt
+        echo "✅ Terraform formatting completed"
+
+    - name: Create temporary backend for validation
+      run: |
+        # Temporarily move all backend files to avoid conflicts
+        mkdir -p ../temp_backends
+        mv backend-*.tf ../temp_backends/ 2>/dev/null || true
+        
+        # Create a minimal backend.tf for validation only
+        cat > backend.tf << 'BACKEND_EOF'
+        terraform {
+          backend "azurerm" {}
+        }
+        BACKEND_EOF
+
+    - name: Terraform Init (validation mode)
+      run: terraform init -backend=false
+
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate
+
+    - name: Cleanup validation backend
+      run: |
+        # Remove temporary backend and restore original files
+        rm -f backend.tf
+        mv ../temp_backends/backend-*.tf . 2>/dev/null || true
+        rmdir ../temp_backends 2>/dev/null || true

@@ -1,8 +1,11 @@
 # Production Environment Configuration
-environment = "production"
-location = "East US"
+environment = "prod"
+resource_group_base_name = "devops-ai"
+location = "West US 2"
+
 tags = {
-  Environment = "production"
-  ManagedBy   = "terraform"
-  Project     = "azurecloud-poc"
+  environment = "prod"
+  project     = "devops-agent-demo"
+  managed_by  = "terraform"
+  cost_center = "production"
 }
