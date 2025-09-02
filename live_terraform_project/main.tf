@@ -11,11 +11,10 @@ provider "azurerm" {
   features {}
 }
 
-# Create Azure Resource Group
-resource "azurerm_resource_group" "devops-agi-rg-01" {
-  name     = "devops-agi-rg-01"
-  location = "Central India"
-  tags = {
-    env = "test"
-  }
+module "resource_group" {
+  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version = "~> 0.1"
+
+  name     = "devops-agi-test-777"
+  location = "UK South"
 }
