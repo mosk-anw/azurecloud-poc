@@ -111,58 +111,49 @@ jobs:
           COMMITS=$(git log --oneline $TARGET..origin/$SOURCE --no-merges | head -10)
           COMMIT_COUNT=$(git rev-list --count $TARGET..origin/$SOURCE)
           
-          # Create PR with properly escaped content
-          cat > promotion_pr_body.md << 'BODY_EOF'
-## 🎯 Environment Promotion: $SOURCE → $ENV_NAME
+          # Create PR body content
+          PR_BODY="## 🎯 Environment Promotion: $SOURCE → $ENV_NAME
 
-### Summary
-Promoting **$COMMIT_COUNT commit(s)** from `$SOURCE` to `$TARGET` branch.
+          ### Summary
+          Promoting **$COMMIT_COUNT commit(s)** from \`$SOURCE\` to \`$TARGET\` branch.
 
-### Changes to Deploy
-```
-$COMMITS
-```
+          ### Changes to Deploy
+          \`\`\`
+          $COMMITS
+          \`\`\`
 
-### Pre-deployment Checklist
-- [ ] All CI checks passed on source branch
-- [ ] Changes tested in lower environment
-- [ ] Breaking changes documented
-- [ ] Rollback plan confirmed
+          ### Pre-deployment Checklist
+          - [ ] All CI checks passed on source branch
+          - [ ] Changes tested in lower environment
+          - [ ] Breaking changes documented
+          - [ ] Rollback plan confirmed
 
-### Deployment Timeline
-- **Source Environment**: $(echo $SOURCE | tr '[:lower:]' '[:upper:]')
-- **Target Environment**: $ENV_NAME
-- **Estimated Deployment**: After PR approval and merge
+          ### Deployment Timeline
+          - **Source Environment**: $(echo $SOURCE | tr '[:lower:]' '[:upper:]')
+          - **Target Environment**: $ENV_NAME
+          - **Estimated Deployment**: After PR approval and merge
 
-### Security & Compliance
-- [ ] Security scan results reviewed
-- [ ] Compliance requirements met
-- [ ] Change management approval obtained
+          ### Security & Compliance
+          - [ ] Security scan results reviewed
+          - [ ] Compliance requirements met
+          - [ ] Change management approval obtained
 
-### Rollback Plan
-- [ ] Rollback procedure documented
-- [ ] Previous version tagged and available
-- [ ] Rollback tested in lower environment
+          ### Rollback Plan
+          - [ ] Rollback procedure documented
+          - [ ] Previous version tagged and available
+          - [ ] Rollback tested in lower environment
 
----
+          ---
 
-**🤖 Automated Environment Promotion**
-*This PR was created automatically by the Environment Promotion workflow*
-BODY_EOF
-
-          # Substitute variables in the body
-          sed -i "s/\$SOURCE/$SOURCE/g" promotion_pr_body.md
-          sed -i "s/\$TARGET/$TARGET/g" promotion_pr_body.md
-          sed -i "s/\$ENV_NAME/$ENV_NAME/g" promotion_pr_body.md
-          sed -i "s/\$COMMIT_COUNT/$COMMIT_COUNT/g" promotion_pr_body.md
-          sed -i "s/\$COMMITS/$COMMITS/g" promotion_pr_body.md
+          **🤖 Automated Environment Promotion**
+          *This PR was created automatically by the Environment Promotion workflow*"
           
           # Create PR
           gh pr create \
             --base $TARGET \
             --head $PROMOTION_BRANCH \
             --title "🚀 Promote $SOURCE to $ENV_NAME Environment" \
-            --body-file promotion_pr_body.md \
+            --body "$PR_BODY" \
             --label "promotion" \
             --label "environment:$TARGET"
 
@@ -172,24 +163,26 @@ BODY_EOF
           PR_NUMBER=$(gh pr list --head $PROMOTION_BRANCH --json number --jq '.[0].number')
           
           if [ -n "$PR_NUMBER" ]; then
-            gh pr comment $PR_NUMBER --body "## 📋 Next Steps
+            COMMENT_BODY="## 📋 Next Steps
 
-1. **Review Changes**: Carefully review all changes in this promotion
-2. **Approve PR**: Add your approval if changes look good
-3. **Merge PR**: Merge this PR to trigger deployment to ${{ env.TARGET }}
-4. **Monitor Deployment**: Watch the terraform-cd.yml workflow for deployment status
+            1. **Review Changes**: Carefully review all changes in this promotion
+            2. **Approve PR**: Add your approval if changes look good
+            3. **Merge PR**: Merge this PR to trigger deployment to ${{ env.TARGET }}
+            4. **Monitor Deployment**: Watch the terraform-cd.yml workflow for deployment status
 
-### 🔍 Validation
-- [ ] CI checks pass
-- [ ] Manual review completed
-- [ ] Ready for deployment
+            ### 🔍 Validation
+            - [ ] CI checks pass
+            - [ ] Manual review completed
+            - [ ] Ready for deployment
 
-### ⚠️ Important Notes
-- This promotion will trigger automatic deployment after merge
-- Production deployments require manual approval
-- Monitor the deployment workflow after merging
+            ### ⚠️ Important Notes
+            - This promotion will trigger automatic deployment after merge
+            - Production deployments require manual approval
+            - Monitor the deployment workflow after merging
 
-**�� Automated promotion workflow completed successfully!**"
+            **🤖 Automated promotion workflow completed successfully!**"
+            
+            gh pr comment $PR_NUMBER --body "$COMMENT_BODY"
           fi
           
       - name: Summary
