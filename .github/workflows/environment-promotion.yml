@@ -25,129 +25,103 @@ permissions:
   actions: read
 
 jobs:
-  validate-promotion:
-    name: Validate Promotion Request
-    runs-on: ubuntu-latest
-    outputs:
-      source_branch: ${{ steps.set-branches.outputs.source_branch }}
-      target_branch: ${{ steps.set-branches.outputs.target_branch }}
-      promotion_valid: ${{ steps.validate.outputs.promotion_valid }}
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set branch names based on promotion type
-      id: set-branches
-      run: |
-        case "${{ github.event.inputs.promotion_type }}" in
-          "develop-to-staging")
-            echo "source_branch=develop" >> $GITHUB_OUTPUT
-            echo "target_branch=staging" >> $GITHUB_OUTPUT
-            ;;
-          "staging-to-production")
-            echo "source_branch=staging" >> $GITHUB_OUTPUT
-            echo "target_branch=main" >> $GITHUB_OUTPUT
-            ;;
-          *)
-            echo "❌ Invalid promotion type"
-            exit 1
-            ;;
-        esac
-
-    - name: Validate promotion prerequisites
-      id: validate
-      run: |
-        SOURCE="${{ steps.set-branches.outputs.source_branch }}"
-        TARGET="${{ steps.set-branches.outputs.target_branch }}"
-        
-        echo "🔍 Validating promotion from $SOURCE to $TARGET..."
-        
-        # Check if source branch exists and has changes
-        git fetch origin $SOURCE:$SOURCE 2>/dev/null || {
-          echo "❌ Source branch $SOURCE not found"
-          exit 1
-        }
-        
-        git fetch origin $TARGET:$TARGET 2>/dev/null || {
-          echo "❌ Target branch $TARGET not found"
-          exit 1
-        }
-        
-        # Check if there are changes to promote
-        CHANGES=$(git rev-list --count $TARGET..$SOURCE)
-        if [ "$CHANGES" -eq 0 ]; then
-          echo "⚠️  No changes to promote from $SOURCE to $TARGET"
-          echo "promotion_valid=false" >> $GITHUB_OUTPUT
-        else
-          echo "✅ Found $CHANGES commit(s) to promote"
-          echo "promotion_valid=true" >> $GITHUB_OUTPUT
-        fi
-
-  create-promotion-pr:
+  promote:
     name: Create Promotion PR
     runs-on: ubuntu-latest
-    needs: validate-promotion
-    if: needs.validate-promotion.outputs.promotion_valid == 'true'
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup Git
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
 
-    - name: Create promotion branch
-      run: |
-        SOURCE="${{ needs.validate-promotion.outputs.source_branch }}"
-        TARGET="${{ needs.validate-promotion.outputs.target_branch }}"
-        PROMOTION_BRANCH="promotion/$SOURCE-to-$TARGET-$(date +%Y%m%d-%H%M%S)"
-        
-        echo "🔄 Creating promotion branch: $PROMOTION_BRANCH"
-        
-        # Create promotion branch from source
-        git checkout -b $PROMOTION_BRANCH origin/$SOURCE
-        git push origin $PROMOTION_BRANCH
-        
-        echo "promotion_branch=$PROMOTION_BRANCH" >> $GITHUB_ENV
+      - name: Set promotion variables
+        id: vars
+        run: |
+          case "${{ inputs.promotion_type }}" in
+            "develop-to-staging")
+              echo "source=develop" >> $GITHUB_OUTPUT
+              echo "target=staging" >> $GITHUB_OUTPUT
+              ;;
+            "staging-to-production")
+              echo "source=staging" >> $GITHUB_OUTPUT
+              echo "target=main" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Invalid promotion type"
+              exit 1
+              ;;
+          esac
 
-    - name: Generate promotion PR
-      run: |
-        SOURCE="${{ needs.validate-promotion.outputs.source_branch }}"
-        TARGET="${{ needs.validate-promotion.outputs.target_branch }}"
-        
-        # Determine environment names
-        case "$TARGET" in
-          "staging") ENV_NAME="Staging" ;;
-          "main") ENV_NAME="Production" ;;
-          *) ENV_NAME="$TARGET" ;;
-        esac
-        
-        # Get commit summary
-        COMMITS=$(git log --oneline $TARGET..origin/$SOURCE --no-merges | head -10)
-        COMMIT_COUNT=$(git rev-list --count $TARGET..origin/$SOURCE)
-        
-        # Create PR
-        gh pr create \
-          --base $TARGET \
-          --head $PROMOTION_BRANCH \
-          --title "🚀 Promote $SOURCE to $ENV_NAME Environment" \
-          --body "## 🎯 Environment Promotion: $SOURCE → $ENV_NAME
+      - name: Validate source branch
+        run: |
+          SOURCE="${{ steps.vars.outputs.source }}"
+          if ! git ls-remote --heads origin $SOURCE | grep -q $SOURCE; then
+            echo "Source branch $SOURCE does not exist"
+            exit 1
+          fi
+          
+          # Check if source branch has commits ahead of target
+          TARGET="${{ steps.vars.outputs.target }}"
+          git fetch origin $SOURCE:$SOURCE
+          git fetch origin $TARGET:$TARGET
+          
+          AHEAD=$(git rev-list --count $TARGET..$SOURCE)
+          if [ "$AHEAD" -eq "0" ]; then
+            echo "Source branch $SOURCE is not ahead of $TARGET. Nothing to promote."
+            exit 1
+          fi
+          
+          echo "Found $AHEAD commits to promote from $SOURCE to $TARGET"
+
+      - name: Create promotion branch
+        run: |
+          SOURCE="${{ steps.vars.outputs.source }}"
+          TARGET="${{ steps.vars.outputs.target }}"
+          PROMOTION_BRANCH="promote-$SOURCE-to-$TARGET-$(date +%Y%m%d-%H%M%S)"
+          
+          echo "PROMOTION_BRANCH=$PROMOTION_BRANCH" >> $GITHUB_ENV
+          echo "SOURCE=$SOURCE" >> $GITHUB_ENV
+          echo "TARGET=$TARGET" >> $GITHUB_ENV
+          
+          # Create promotion branch from target
+          git checkout -b $PROMOTION_BRANCH origin/$TARGET
+          
+          # Merge source into promotion branch
+          git merge origin/$SOURCE --no-ff -m "Promote $SOURCE to $TARGET"
+          
+          # Push promotion branch
+          git push origin $PROMOTION_BRANCH
+
+      - name: Create promotion PR
+        run: |
+          # Set environment name for display
+          case "$TARGET" in
+            "staging") ENV_NAME="Staging" ;;
+            "main") ENV_NAME="Production" ;;
+            *) ENV_NAME="$TARGET" ;;
+          esac
+          
+          # Get commit summary
+          COMMITS=$(git log --oneline $TARGET..origin/$SOURCE --no-merges | head -10)
+          COMMIT_COUNT=$(git rev-list --count $TARGET..origin/$SOURCE)
+          
+          # Create PR with properly escaped content
+          cat > promotion_pr_body.md << 'BODY_EOF'
+## 🎯 Environment Promotion: $SOURCE → $ENV_NAME
 
 ### Summary
 Promoting **$COMMIT_COUNT commit(s)** from \`$SOURCE\` to \`$TARGET\` branch.
 
 ### Changes to Deploy
-\`\`\`
+```
 $COMMITS
-\`\`\`
+```
 
 ### Pre-deployment Checklist
 - [ ] All CI checks passed on source branch
@@ -158,63 +132,69 @@ $COMMITS
 ### Deployment Timeline
 - **Source Environment**: $(echo $SOURCE | tr '[:lower:]' '[:upper:]')
 - **Target Environment**: $ENV_NAME
-- **Promotion Type**: ${{ github.event.inputs.promotion_type }}
+- **Estimated Deployment**: After PR approval and merge
 
-### Next Steps
-1. ✅ Review changes and approve PR
-2. 🚀 Merge to trigger automatic deployment to $ENV_NAME
-3. 🔍 Monitor deployment in Actions tab
-4. ✅ Verify deployment success
+### Security & Compliance
+- [ ] Security scan results reviewed
+- [ ] Compliance requirements met
+- [ ] Change management approval obtained
 
-**Auto-generated by Environment Promotion Workflow** 🤖"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+### Rollback Plan
+- [ ] Rollback procedure documented
+- [ ] Previous version tagged and available
+- [ ] Rollback tested in lower environment
 
-    - name: Add promotion labels
-      run: |
-        TARGET="${{ needs.validate-promotion.outputs.target_branch }}"
-        
-        case "$TARGET" in
-          "staging")
-            LABELS="promotion,staging,deployment"
-            ;;
-          "main")
-            LABELS="promotion,production,deployment,critical"
-            ;;
-          *)
-            LABELS="promotion,deployment"
-            ;;
-        esac
-        
-        gh pr edit $PROMOTION_BRANCH --add-label "$LABELS"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+---
 
-  promotion-summary:
-    name: Promotion Summary
-    runs-on: ubuntu-latest
-    needs: [validate-promotion, create-promotion-pr]
-    if: always()
-    
-    steps:
-    - name: Generate promotion summary
-      run: |
-        echo "## 🚀 Environment Promotion Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Promotion Type**: ${{ github.event.inputs.promotion_type }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Source Branch**: ${{ needs.validate-promotion.outputs.source_branch }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Target Branch**: ${{ needs.validate-promotion.outputs.target_branch }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Validation**: ${{ needs.validate-promotion.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "**PR Creation**: ${{ needs.create-promotion-pr.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        if [ "${{ needs.validate-promotion.outputs.promotion_valid }}" == "true" ]; then
-          echo "✅ **Promotion PR created successfully!**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Next Steps**:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Review and approve the promotion PR" >> $GITHUB_STEP_SUMMARY
-          echo "2. Merge to trigger deployment" >> $GITHUB_STEP_SUMMARY
-          echo "3. Monitor deployment progress" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "⚠️  **No changes to promote**" >> $GITHUB_STEP_SUMMARY
-        fi
+**🤖 Automated Environment Promotion**
+*This PR was created automatically by the Environment Promotion workflow*
+BODY_EOF
+
+          # Substitute variables in the body
+          sed -i "s/\$SOURCE/$SOURCE/g" promotion_pr_body.md
+          sed -i "s/\$TARGET/$TARGET/g" promotion_pr_body.md
+          sed -i "s/\$ENV_NAME/$ENV_NAME/g" promotion_pr_body.md
+          sed -i "s/\$COMMIT_COUNT/$COMMIT_COUNT/g" promotion_pr_body.md
+          sed -i "s/\$COMMITS/$COMMITS/g" promotion_pr_body.md
+          
+          # Create PR
+          gh pr create \
+            --base $TARGET \
+            --head $PROMOTION_BRANCH \
+            --title "🚀 Promote $SOURCE to $ENV_NAME Environment" \
+            --body-file promotion_pr_body.md \
+            --label "promotion" \
+            --label "environment:$TARGET"
+
+      - name: Add PR comment with instructions
+        run: |
+          # Get the PR number from the created PR
+          PR_NUMBER=$(gh pr list --head $PROMOTION_BRANCH --json number --jq '.[0].number')
+          
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr comment $PR_NUMBER --body "## 📋 Next Steps
+
+1. **Review Changes**: Carefully review all changes in this promotion
+2. **Approve PR**: Add your approval if changes look good
+3. **Merge PR**: Merge this PR to trigger deployment to ${{ env.TARGET }}
+4. **Monitor Deployment**: Watch the terraform-cd.yml workflow for deployment status
+
+### 🔍 Validation
+- [ ] CI checks pass
+- [ ] Manual review completed
+- [ ] Ready for deployment
+
+### ⚠️ Important Notes
+- This promotion will trigger automatic deployment after merge
+- Production deployments require manual approval
+- Monitor the deployment workflow after merging
+
+**�� Automated promotion workflow completed successfully!**"
+          fi
+          
+      - name: Summary
+        run: |
+          echo "✅ Promotion PR created successfully!"
+          echo "🔗 View PR: $(gh pr list --head $PROMOTION_BRANCH --json url --jq '.[0].url')"
+          echo "📋 Source: $SOURCE → Target: $TARGET"
+          echo "🚀 Ready for review and approval!"
