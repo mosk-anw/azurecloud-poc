@@ -2,11 +2,15 @@ name: GitOps Infrastructure Deployment
 
 on:
   push:
-    branches: [main, staging, develop]
-    paths: ["live_terraform_project/**"]
+    branches:
+      - main
+    paths:
+      - 'live_terraform_project/**'
   pull_request:
-    branches: [main, staging, develop]
-    paths: ["live_terraform_project/**"]
+    branches:
+      - main
+    paths:
+      - 'live_terraform_project/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -27,8 +31,6 @@ on:
         - plan
         - apply
         - destroy
-  schedule:
-    - cron: '0 6 * * 1-5'  # Run drift detection weekdays at 6 AM UTC
 
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -347,4 +349,20 @@ jobs:
             4. Re-run deployment to sync infrastructure
             `,
             labels: ['infrastructure', 'drift-detection', '${{ matrix.environment }}']
+          })
+
+  schedule-drift-detection:
+    name: Scheduled Drift Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Trigger drift detection
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'gitops-deployment.yml',
+            ref: 'main'
           })

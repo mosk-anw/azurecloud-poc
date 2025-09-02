@@ -1,129 +1,156 @@
-# GitOps Workflow with Remote State Manager
+# GitOps Infrastructure Deployment
 
-This project implements a complete GitOps workflow using Terraform and Azure remote state management.
+This repository implements a comprehensive GitOps workflow for Azure infrastructure deployment using Terraform and Azure Verified Modules (AVM).
 
-## 🏗️ Architecture
+## 🚀 Workflow Features
+
+### ✅ Security & Validation
+- **Security Scanning**: Checkov scans on every PR
+- **Terraform Validation**: Format, init, and validate checks
+- **Environment Protection**: GitHub environments with approval gates
+
+### 📊 Multi-Environment Pipeline
+- **Development**: Auto-deploy on main branch push
+- **Staging**: Sequential deployment after dev success
+- **Production**: Manual approval required
+
+### 🔍 Drift Detection
+- **Scheduled**: Runs weekdays at 6 AM UTC
+- **Automatic Issues**: Creates GitHub issues when drift detected
+- **Multi-Environment**: Checks all environments simultaneously
+
+## 🏗️ Repository Structure
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Git Repository │    │  GitHub Actions │    │ Azure Resources │
-│                 │    │                 │    │                 │
-│  Infrastructure │───▶│ GitOps Workflow │───▶│ Deployed        │
-│  as Code        │    │                 │    │ Infrastructure  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                        │                        │
-         ▼                        ▼                        ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Branch Strategy │    │ Remote State    │    │ Drift Detection │
-│ • feature/*     │    │ Management      │    │ & Monitoring    │
-│ • develop       │    │                 │    │                 │
-│ • main          │    │ Azure Storage   │    │ Auto Remediation│
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+├── .github/workflows/
+│   ├── gitops-deployment.yml    # Main GitOps pipeline
+│   └── terraform-checks.yml     # Legacy validation (backup)
+├── live_terraform_project/
+│   ├── main.tf                  # AVM-based infrastructure
+│   ├── backend-development.tf   # Dev environment backend
+│   ├── backend-staging.tf       # Staging environment backend
+│   └── backend-production.tf    # Production environment backend
+├── configs/
+│   ├── development.tfvars       # Dev environment variables
+│   ├── staging.tfvars          # Staging environment variables
+│   └── production.tfvars       # Production environment variables
+└── README.md
 ```
 
-## 🌍 Environments
+## ⚙️ Setup Requirements
 
-| Environment | Branch Pattern | Auto Deploy | Approval Required | State Key |
-|-------------|---------------|-------------|-------------------|-----------|
-| Development | `feature/*`   | ✅ Yes      | ❌ No             | `dev/terraform.tfstate` |
-| Staging     | `develop`     | ✅ Yes      | ✅ Yes            | `staging/terraform.tfstate` |
-| Production  | `main`        | ❌ No       | ✅ Yes            | `prod/terraform.tfstate` |
+### GitHub Secrets
+Configure these secrets in your repository:
 
-## 🚀 Workflow
-
-### 1. Development
-1. Create feature branch: `git checkout -b feature/new-storage`
-2. Modify Terraform files
-3. Commit and push: triggers development deployment
-4. Review in Azure portal
-
-### 2. Staging
-1. Create PR: `feature/new-storage` → `develop`
-2. Team reviews infrastructure changes
-3. Merge triggers staging deployment
-4. Integration tests run
-
-### 3. Production
-1. Create PR: `develop` → `main`
-2. Required approvals from Infrastructure + Security teams
-3. Manual deployment trigger
-4. Production resources deployed
-
-## 🔍 Drift Detection
-
-Automatic drift detection runs every 6 hours:
-- Compares actual Azure resources vs Terraform state
-- Creates alerts for unauthorized changes
-- Auto-remediation for dev/staging (manual for production)
-
-Run manual drift detection:
 ```bash
-./detect-drift.sh staging
-./detect-drift.sh production
+AZURE_CLIENT_ID       # Service Principal Client ID
+AZURE_CLIENT_SECRET   # Service Principal Secret
+AZURE_SUBSCRIPTION_ID # Target Azure Subscription
+AZURE_TENANT_ID      # Azure AD Tenant ID
 ```
 
-## 🔒 Security
+### GitHub Environments
+Create these environments with protection rules:
 
-- **No Direct Access**: All changes through Git workflow
-- **Service Principal**: Automated authentication
-- **State Encryption**: Remote state encrypted in Azure Storage
-- **Audit Trail**: Git history + Azure Activity Log
-- **RBAC**: Azure AD integration
+1. **development** - No approval required
+2. **staging** - Optional: Require reviewers
+3. **production** - Require reviewers + deployment protection
 
-## 📊 Monitoring
+## 🔄 Workflow Triggers
 
-- GitHub Actions workflow status
-- Azure Resource health monitoring
-- State consistency checks
-- Cost tracking and alerts
+### Automatic Triggers
+- **PR Creation**: Security scan + validation
+- **Main Branch Push**: Full deployment pipeline (dev → staging → prod)
+- **Schedule**: Drift detection (weekdays 6 AM UTC)
 
-## 🚨 Emergency Procedures
+### Manual Triggers
+- **Workflow Dispatch**: Deploy specific environment
+- **Actions**: plan, apply, or destroy
 
-### Rollback
-1. Git revert to previous commit
-2. GitOps workflow deploys previous state
-3. Verify infrastructure health
+## 📋 Pipeline Flow
 
-### Break Glass
-1. Emergency Azure portal access (documented separately)
-2. Manual Terraform operations
-3. Update Git to reflect manual changes
-4. Resume GitOps workflow
+```mermaid
+graph TD
+    A[PR Created] --> B[Security Scan]
+    A --> C[Terraform Validate]
+    
+    D[Push to Main] --> E[Plan Development]
+    E --> F[Deploy Development]
+    F --> G[Plan Staging]
+    G --> H[Deploy Staging]
+    H --> I[Plan Production]
+    I --> J[Deploy Production]
+    
+    K[Schedule] --> L[Drift Detection]
+    L --> M[Create Issues if Drift]
+```
 
-## 📋 Getting Started
+## 🛠️ Usage Examples
 
-1. **Setup Azure Service Principal**:
-   ```bash
-   az ad sp create-for-rbac --name "gitops-terraform" --role="Contributor"
-   ```
+### Deploy to Specific Environment
+```bash
+# Go to Actions tab → GitOps Infrastructure Deployment → Run workflow
+# Select environment: development/staging/production
+# Select action: plan/apply/destroy
+```
 
-2. **Configure GitHub Secrets**:
-   - `AZURE_CLIENT_ID`
-   - `AZURE_CLIENT_SECRET` 
-   - `AZURE_SUBSCRIPTION_ID`
-   - `AZURE_TENANT_ID`
+### View Deployment Status
+```bash
+# Check workflow runs in Actions tab
+# Review environment deployment history
+# Monitor for drift detection issues
+```
 
-3. **Deploy Backend Infrastructure**:
-   ```bash
-   ./deploy.sh
-   ```
+## 🔧 Customization
 
-4. **Create Feature Branch**:
-   ```bash
-   git checkout -b feature/my-changes
-   # Make changes
-   git commit -am "Add new storage account"
-   git push origin feature/my-changes
-   ```
+### Adding New Environments
+1. Create new backend file: `backend-{env}.tf`
+2. Add environment config: `configs/{env}.tfvars`
+3. Update workflow matrix in drift-detection job
 
-5. **Monitor Deployment**:
-   - Check GitHub Actions for workflow status
-   - Review Azure portal for deployed resources
-   - Verify drift detection is working
+### Modifying Approval Rules
+1. Go to Settings → Environments
+2. Configure protection rules per environment
+3. Add required reviewers or deployment delays
 
-## 📚 Additional Resources
+## 🚨 Troubleshooting
 
-- [Security Policy](SECURITY_POLICY.md)
-- [Compliance Checklist](COMPLIANCE_CHECKLIST.md)
-- [Terraform Best Practices](https://developer.hashicorp.com/terraform/cloud-docs/recommended-practices)
-- [Azure Terraform Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest)
+### Common Issues
+
+**Backend Configuration**
+- Ensure backend-{env}.tf files exist
+- Verify Azure storage account permissions
+
+**Drift Detection**
+- Check terraform plan output in workflow logs
+- Review generated GitHub issues for details
+
+**Environment Secrets**
+- Verify all Azure secrets are configured
+- Test service principal permissions
+
+## 📚 Best Practices
+
+### Infrastructure Changes
+1. Create feature branch
+2. Make changes in `live_terraform_project/`
+3. Open PR (triggers validation)
+4. Merge to main (triggers deployment)
+
+### Emergency Deployment
+1. Use workflow dispatch for urgent changes
+2. Select specific environment and action
+3. Monitor deployment progress
+
+### Drift Resolution
+1. Review drift detection issues
+2. Investigate infrastructure changes
+3. Update Terraform to match or revert changes
+4. Re-run deployment to sync state
+
+---
+
+🔗 **Related Documentation**
+- [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
+- [Terraform Azure Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest)
+- [GitHub Actions Workflows](https://docs.github.com/en/actions/using-workflows)
