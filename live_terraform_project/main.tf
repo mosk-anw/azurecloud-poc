@@ -15,6 +15,6 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "testrg-999"
+  name     = "testrg0178"
   location = "UK South"
 }
