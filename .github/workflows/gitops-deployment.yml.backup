@@ -30,6 +30,12 @@ on:
   schedule:
     - cron: '0 6 * * 1-5'  # Run drift detection weekdays at 6 AM UTC
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -55,7 +61,8 @@ jobs:
         framework: terraform
         output_format: sarif
         output_file_path: reports/results.sarif
-        
+        config_file: .checkov.yml
+        download_external_modules: true        
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v2
       if: always()
@@ -76,16 +83,36 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
     - name: Terraform Format Check
       run: terraform fmt -check=true
+
+    - name: Create temporary backend for validation
+      run: |
+        # Temporarily move all backend files to avoid conflicts
+        mkdir -p ../temp_backends
+        mv backend-*.tf ../temp_backends/ || true
+        
+        # Create a minimal backend.tf for validation only
+        cat > backend.tf << 'BACKEND_EOF'
+        terraform {
+          backend "azurerm" {}
+        }
+        BACKEND_EOF
 
     - name: Terraform Init
       run: terraform init -backend=false
 
     - name: Terraform Validate
       run: terraform validate
+
+    - name: Cleanup validation backend
+      run: |
+        # Remove temporary backend and restore original files
+        rm -f backend.tf
+        mv ../temp_backends/backend-*.tf . || true
+        rmdir ../temp_backends || true
 
   plan-development:
     name: Plan Development
@@ -104,10 +131,14 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
-    - name: Copy Development Backend
-      run: cp backend-development.tf backend.tf
+    - name: Setup backend for development
+      run: |
+        # Remove other backend files to avoid conflicts
+        rm -f backend-staging.tf backend-production.tf
+        # Copy development backend as the active backend
+        mv backend-development.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -116,7 +147,7 @@ jobs:
       run: terraform plan -var-file="../configs/development.tfvars" -out=tfplan-dev
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan-development
         path: live_terraform_project/tfplan-dev
@@ -138,16 +169,18 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan-development
         path: live_terraform_project/
 
-    - name: Copy Development Backend
-      run: cp backend-development.tf backend.tf
+    - name: Setup backend for development
+      run: |
+        rm -f backend-staging.tf backend-production.tf
+        mv backend-development.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -172,10 +205,12 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
-    - name: Copy Staging Backend
-      run: cp backend-staging.tf backend.tf
+    - name: Setup backend for staging
+      run: |
+        rm -f backend-development.tf backend-production.tf
+        mv backend-staging.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -184,7 +219,7 @@ jobs:
       run: terraform plan -var-file="../configs/staging.tfvars" -out=tfplan-staging
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan-staging
         path: live_terraform_project/tfplan-staging
@@ -205,16 +240,18 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan-staging
         path: live_terraform_project/
 
-    - name: Copy Staging Backend
-      run: cp backend-staging.tf backend.tf
+    - name: Setup backend for staging
+      run: |
+        rm -f backend-development.tf backend-production.tf
+        mv backend-staging.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -239,10 +276,12 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
-    - name: Copy Production Backend
-      run: cp backend-production.tf backend.tf
+    - name: Setup backend for production
+      run: |
+        rm -f backend-development.tf backend-staging.tf
+        mv backend-production.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -251,7 +290,7 @@ jobs:
       run: terraform plan -var-file="../configs/production.tfvars" -out=tfplan-prod
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan-production
         path: live_terraform_project/tfplan-prod
@@ -272,16 +311,18 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan-production
         path: live_terraform_project/
 
-    - name: Copy Production Backend
-      run: cp backend-production.tf backend.tf
+    - name: Setup backend for production
+      run: |
+        rm -f backend-development.tf backend-staging.tf
+        mv backend-production.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -307,10 +348,25 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: 1.9.7
 
-    - name: Copy Backend for Environment
-      run: cp backend-${{ matrix.environment }}.tf backend.tf
+    - name: Setup backend for environment
+      run: |
+        # Remove other backend files and set up the specific environment
+        case "${{ matrix.environment }}" in
+          development)
+            rm -f backend-staging.tf backend-production.tf
+            mv backend-development.tf backend.tf
+            ;;
+          staging)
+            rm -f backend-development.tf backend-production.tf
+            mv backend-staging.tf backend.tf
+            ;;
+          production)
+            rm -f backend-development.tf backend-staging.tf
+            mv backend-production.tf backend.tf
+            ;;
+        esac
 
     - name: Terraform Init
       run: terraform init
