@@ -116,7 +116,7 @@ jobs:
 ## 🎯 Environment Promotion: $SOURCE → $ENV_NAME
 
 ### Summary
-Promoting **$COMMIT_COUNT commit(s)** from \`$SOURCE\` to \`$TARGET\` branch.
+Promoting **$COMMIT_COUNT commit(s)** from `$SOURCE` to `$TARGET` branch.
 
 ### Changes to Deploy
 ```
