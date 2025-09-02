@@ -1,8 +1,11 @@
 # Development Environment Configuration
-environment = "development"
+environment = "dev"
+resource_group_base_name = "devops-ai"
 location = "East US"
+
 tags = {
-  Environment = "development"
-  ManagedBy   = "terraform"
-  Project     = "azurecloud-poc"
+  environment = "dev"
+  project     = "devops-agent-demo"
+  managed_by  = "terraform"
+  cost_center = "development"
 }
