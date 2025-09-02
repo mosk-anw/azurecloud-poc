@@ -1,11 +1,11 @@
 terraform {
-  required_version = ">= 1.9"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 provider "azurerm" {
@@ -16,10 +16,8 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "e2etest"
-  location = "North Europe"
+  name     = "devops-ai-test-rg-01"
+  location = "uksouth"
 
   tags = var.tags
 }
-# Updated on Tue Sep  2 22:49:04 BST 2025
-# Updated on Tue Sep  2 22:49:09 BST 2025
