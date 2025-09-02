@@ -1,8 +1,11 @@
 # Staging Environment Configuration
-environment = "staging"
-location = "East US"
+environment = "stg"
+resource_group_base_name = "devops-ai"
+location = "Central US"
+
 tags = {
-  Environment = "staging"
-  ManagedBy   = "terraform"
-  Project     = "azurecloud-poc"
+  environment = "stg"
+  project     = "devops-agent-demo"
+  managed_by  = "terraform"
+  cost_center = "staging"
 }
