@@ -1,0 +1,193 @@
+name: Environment Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      promotion_type:
+        description: 'Type of promotion'
+        required: true
+        type: choice
+        options:
+        - develop-to-staging
+        - staging-to-production
+      source_branch:
+        description: 'Source branch (auto-filled based on promotion type)'
+        required: false
+        type: string
+      target_branch:
+        description: 'Target branch (auto-filled based on promotion type)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  promote:
+    name: Create Promotion PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Set promotion variables
+        id: vars
+        run: |
+          case "${{ inputs.promotion_type }}" in
+            "develop-to-staging")
+              echo "source=develop" >> $GITHUB_OUTPUT
+              echo "target=staging" >> $GITHUB_OUTPUT
+              ;;
+            "staging-to-production")
+              echo "source=staging" >> $GITHUB_OUTPUT
+              echo "target=main" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Invalid promotion type"
+              exit 1
+              ;;
+          esac
+
+      - name: Validate source branch
+        run: |
+          SOURCE="${{ steps.vars.outputs.source }}"
+          if ! git ls-remote --heads origin $SOURCE | grep -q $SOURCE; then
+            echo "Source branch $SOURCE does not exist"
+            exit 1
+          fi
+          
+          # Check if source branch has commits ahead of target
+          TARGET="${{ steps.vars.outputs.target }}"
+          git fetch origin $SOURCE:$SOURCE
+          git fetch origin $TARGET:$TARGET
+          
+          AHEAD=$(git rev-list --count $TARGET..$SOURCE)
+          if [ "$AHEAD" -eq "0" ]; then
+            echo "Source branch $SOURCE is not ahead of $TARGET. Nothing to promote."
+            exit 1
+          fi
+          
+          echo "Found $AHEAD commits to promote from $SOURCE to $TARGET"
+
+      - name: Create promotion branch
+        run: |
+          SOURCE="${{ steps.vars.outputs.source }}"
+          TARGET="${{ steps.vars.outputs.target }}"
+          PROMOTION_BRANCH="promote-$SOURCE-to-$TARGET-$(date +%Y%m%d-%H%M%S)"
+          
+          echo "PROMOTION_BRANCH=$PROMOTION_BRANCH" >> $GITHUB_ENV
+          echo "SOURCE=$SOURCE" >> $GITHUB_ENV
+          echo "TARGET=$TARGET" >> $GITHUB_ENV
+          
+          # Create promotion branch from target
+          git checkout -b $PROMOTION_BRANCH origin/$TARGET
+          
+          # Merge source into promotion branch
+          git merge origin/$SOURCE --no-ff -m "Promote $SOURCE to $TARGET"
+          
+          # Push promotion branch
+          git push origin $PROMOTION_BRANCH
+
+      - name: Create promotion PR
+        run: |
+          # Set environment name for display
+          case "$TARGET" in
+            "staging") ENV_NAME="Staging" ;;
+            "main") ENV_NAME="Production" ;;
+            *) ENV_NAME="$TARGET" ;;
+          esac
+          
+          # Get commit summary
+          COMMITS=$(git log --oneline $TARGET..origin/$SOURCE --no-merges | head -10)
+          COMMIT_COUNT=$(git rev-list --count $TARGET..origin/$SOURCE)
+          
+          # Create PR body content
+          PR_BODY="## 🎯 Environment Promotion: $SOURCE → $ENV_NAME
+
+          ### Summary
+          Promoting **$COMMIT_COUNT commit(s)** from \`$SOURCE\` to \`$TARGET\` branch.
+
+          ### Changes to Deploy
+          \`\`\`
+          $COMMITS
+          \`\`\`
+
+          ### Pre-deployment Checklist
+          - [ ] All CI checks passed on source branch
+          - [ ] Changes tested in lower environment
+          - [ ] Breaking changes documented
+          - [ ] Rollback plan confirmed
+
+          ### Deployment Timeline
+          - **Source Environment**: $(echo $SOURCE | tr '[:lower:]' '[:upper:]')
+          - **Target Environment**: $ENV_NAME
+          - **Estimated Deployment**: After PR approval and merge
+
+          ### Security & Compliance
+          - [ ] Security scan results reviewed
+          - [ ] Compliance requirements met
+          - [ ] Change management approval obtained
+
+          ### Rollback Plan
+          - [ ] Rollback procedure documented
+          - [ ] Previous version tagged and available
+          - [ ] Rollback tested in lower environment
+
+          ---
+
+          **🤖 Automated Environment Promotion**
+          *This PR was created automatically by the Environment Promotion workflow*"
+          
+          # Create PR
+          gh pr create \
+            --base $TARGET \
+            --head $PROMOTION_BRANCH \
+            --title "🚀 Promote $SOURCE to $ENV_NAME Environment" \
+            --body "$PR_BODY" \
+            --label "promotion" \
+            --label "environment:$TARGET"
+
+      - name: Add PR comment with instructions
+        run: |
+          # Get the PR number from the created PR
+          PR_NUMBER=$(gh pr list --head $PROMOTION_BRANCH --json number --jq '.[0].number')
+          
+          if [ -n "$PR_NUMBER" ]; then
+            COMMENT_BODY="## 📋 Next Steps
+
+            1. **Review Changes**: Carefully review all changes in this promotion
+            2. **Approve PR**: Add your approval if changes look good
+            3. **Merge PR**: Merge this PR to trigger deployment to ${{ env.TARGET }}
+            4. **Monitor Deployment**: Watch the terraform-cd.yml workflow for deployment status
+
+            ### 🔍 Validation
+            - [ ] CI checks pass
+            - [ ] Manual review completed
+            - [ ] Ready for deployment
+
+            ### ⚠️ Important Notes
+            - This promotion will trigger automatic deployment after merge
+            - Production deployments require manual approval
+            - Monitor the deployment workflow after merging
+
+            **🤖 Automated promotion workflow completed successfully!**"
+            
+            gh pr comment $PR_NUMBER --body "$COMMENT_BODY"
+          fi
+          
+      - name: Summary
+        run: |
+          echo "✅ Promotion PR created successfully!"
+          echo "🔗 View PR: $(gh pr list --head $PROMOTION_BRANCH --json url --jq '.[0].url')"
+          echo "📋 Source: $SOURCE → Target: $TARGET"
+          echo "🚀 Ready for review and approval!"
