@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = ">= 3.0"
     }
   }
   required_version = ">= 1.0.0"
@@ -16,7 +16,11 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "testrg"
-  location = "East US"
-  tags = {}
+  name     = "testeurop"
+  location = "westeurope"
+
+  tags = {
+    "environment" = "demo"
+    "managed_by"  = "devops_ai_agent"
+  }
 }
