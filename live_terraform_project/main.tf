@@ -16,10 +16,9 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "e2etest"
-  location = "North Europe"
+  name     = "e2etest2"
+  location = "South Central US"
+  enable_telemetry = true
 
   tags = var.tags
 }
-# Updated on Tue Sep  2 22:49:04 BST 2025
-# Updated on Tue Sep  2 22:49:09 BST 2025
