@@ -81,31 +81,11 @@ jobs:
     - name: Terraform Format Check
       run: terraform fmt -check=true
 
-    - name: Create temporary backend for validation
-      run: |
-        # Temporarily move all backend files to avoid conflicts
-        mkdir -p ../temp_backends
-        mv backend-*.tf ../temp_backends/ || true
-        
-        # Create a minimal backend.tf for validation only
-        cat > backend.tf << 'BACKEND_EOF'
-        terraform {
-          backend "azurerm" {}
-        }
-        BACKEND_EOF
-
     - name: Terraform Init
       run: terraform init -backend=false
 
     - name: Terraform Validate
       run: terraform validate
-
-    - name: Cleanup validation backend
-      run: |
-        # Remove temporary backend and restore original files
-        rm -f backend.tf
-        mv ../temp_backends/backend-*.tf . || true
-        rmdir ../temp_backends || true
 
   plan-development:
     name: Plan Development
@@ -126,12 +106,8 @@ jobs:
       with:
         terraform_version: ~1.5.0
 
-    - name: Setup backend for development
-      run: |
-        # Remove other backend files to avoid conflicts
-        rm -f backend-staging.tf backend-production.tf
-        # Copy development backend as the active backend
-        cp backend-development.tf backend.tf
+    - name: Copy Development Backend
+      run: cp backend-development.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -170,10 +146,8 @@ jobs:
         name: tfplan-development
         path: live_terraform_project/
 
-    - name: Setup backend for development
-      run: |
-        rm -f backend-staging.tf backend-production.tf
-        cp backend-development.tf backend.tf
+    - name: Copy Development Backend
+      run: cp backend-development.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -200,10 +174,8 @@ jobs:
       with:
         terraform_version: ~1.5.0
 
-    - name: Setup backend for staging
-      run: |
-        rm -f backend-development.tf backend-production.tf
-        cp backend-staging.tf backend.tf
+    - name: Copy Staging Backend
+      run: cp backend-staging.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -241,10 +213,8 @@ jobs:
         name: tfplan-staging
         path: live_terraform_project/
 
-    - name: Setup backend for staging
-      run: |
-        rm -f backend-development.tf backend-production.tf
-        cp backend-staging.tf backend.tf
+    - name: Copy Staging Backend
+      run: cp backend-staging.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -271,10 +241,8 @@ jobs:
       with:
         terraform_version: ~1.5.0
 
-    - name: Setup backend for production
-      run: |
-        rm -f backend-development.tf backend-staging.tf
-        cp backend-production.tf backend.tf
+    - name: Copy Production Backend
+      run: cp backend-production.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -312,10 +280,8 @@ jobs:
         name: tfplan-production
         path: live_terraform_project/
 
-    - name: Setup backend for production
-      run: |
-        rm -f backend-development.tf backend-staging.tf
-        cp backend-production.tf backend.tf
+    - name: Copy Production Backend
+      run: cp backend-production.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
@@ -343,23 +309,8 @@ jobs:
       with:
         terraform_version: ~1.5.0
 
-    - name: Setup backend for environment
-      run: |
-        # Remove other backend files and set up the specific environment
-        case "${{ matrix.environment }}" in
-          development)
-            rm -f backend-staging.tf backend-production.tf
-            cp backend-development.tf backend.tf
-            ;;
-          staging)
-            rm -f backend-development.tf backend-production.tf
-            cp backend-staging.tf backend.tf
-            ;;
-          production)
-            rm -f backend-development.tf backend-staging.tf
-            cp backend-production.tf backend.tf
-            ;;
-        esac
+    - name: Copy Backend for Environment
+      run: cp backend-${{ matrix.environment }}.tf backend.tf
 
     - name: Terraform Init
       run: terraform init
