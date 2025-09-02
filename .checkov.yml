@@ -1,0 +1,19 @@
+# Checkov configuration for Azure Verified Modules (AVM)
+# Skip checks that are not applicable to AVM usage patterns
+
+skip-check:
+  # CKV_TF_1: Skip commit hash requirement for AVM modules
+  # AVM modules are official Microsoft modules, version pinning is sufficient
+  - CKV_TF_1
+  
+# Framework configuration
+framework:
+  - terraform
+
+# Output configuration  
+output: sarif
+quiet: false
+compact: false
+
+# Download external modules for proper analysis
+download-external-modules: true
