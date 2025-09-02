@@ -61,7 +61,8 @@ jobs:
         framework: terraform
         output_format: sarif
         output_file_path: reports/results.sarif
-        
+        config_file: .checkov.yml
+        download_external_modules: true        
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v2
       if: always()
@@ -146,7 +147,7 @@ jobs:
       run: terraform plan -var-file="../configs/development.tfvars" -out=tfplan-dev
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan-development
         path: live_terraform_project/tfplan-dev
@@ -171,7 +172,7 @@ jobs:
         terraform_version: 1.9.7
 
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan-development
         path: live_terraform_project/
@@ -218,7 +219,7 @@ jobs:
       run: terraform plan -var-file="../configs/staging.tfvars" -out=tfplan-staging
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan-staging
         path: live_terraform_project/tfplan-staging
@@ -242,7 +243,7 @@ jobs:
         terraform_version: 1.9.7
 
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan-staging
         path: live_terraform_project/
@@ -289,7 +290,7 @@ jobs:
       run: terraform plan -var-file="../configs/production.tfvars" -out=tfplan-prod
 
     - name: Upload Plan Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tfplan-production
         path: live_terraform_project/tfplan-prod
@@ -313,7 +314,7 @@ jobs:
         terraform_version: 1.9.7
 
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: tfplan-production
         path: live_terraform_project/
