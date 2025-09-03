@@ -4,13 +4,13 @@ variable "environment" {
 }
 
 variable "tags" {
-  description = "A map of tags to assign to the resources"
+  description = "Resource tags"
   type        = map(string)
   default     = {}
 }
 
 variable "location" {
-  description = "The Azure region where resources will be created"
+  description = "Azure region"
   type        = string
 }
 
