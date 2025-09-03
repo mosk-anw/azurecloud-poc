@@ -1,20 +1,24 @@
 variable "environment" {
-  description = "Environment name (dev, stg, prod)"
   type        = string
+  description = "Environment name (dev, stg, prod)"
 }
 
 variable "tags" {
-  description = "Resource tags"
   type        = map(string)
-  default     = {}
+  description = "Resource tags"
 }
 
 variable "location" {
-  description = "Azure region"
   type        = string
+  description = "Azure region"
 }
 
 variable "resource_group_base_name" {
-  description = "Base name for resource group"
   type        = string
+  description = "Base name for resource group"
+}
+
+variable "resource_group_name" {
+  type        = string
+  description = "Name of the resource group"
 }
