@@ -195,11 +195,14 @@ jobs:
               comment.body.includes('CI Pipeline Summary')
             );
             
-            const securityStatus = '${{ needs.security.result }}' === 'success' ? '✅' : '❌';
-            const validateStatus = '${{ needs.validate.result }}' === 'success' ? '✅' : '❌';
-            const planStatus = '${{ needs.validate.result }}' === 'success' ? '✅' : '⚠️';
+            const securityResult = '${{ needs.security.result }}';
+            const validateResult = '${{ needs.validate.result }}';
             
-            const nextSteps = ('${{ needs.validate.result }}' !== 'success' || '${{ needs.security.result }}' !== 'success') 
+            const securityStatus = securityResult === 'success' ? '✅' : '❌';
+            const validateStatus = validateResult === 'success' ? '✅' : '❌';
+            const planStatus = validateResult === 'success' ? '✅' : '⚠️';
+            
+            const nextSteps = (validateResult !== 'success' || securityResult !== 'success') 
               ? '🔧 Please fix the issues above before merging.' 
               : '✅ All checks passed! Ready for merge and deployment.';
             
@@ -207,9 +210,9 @@ jobs:
 
 | Check | Status | Result |
 |-------|--------|--------|
-| Security Scan | ${securityStatus} | ${{ needs.security.result }} |
-| Terraform Validate | ${validateStatus} | ${{ needs.validate.result }} |
-| Terraform Plan | ${planStatus} | ${{ needs.validate.result === 'success' && 'success' || 'skipped' }} |
+| Security Scan | ${securityStatus} | ${securityResult} |
+| Terraform Validate | ${validateStatus} | ${validateResult} |
+| Terraform Plan | ${planStatus} | ${validateResult === 'success' ? 'success' : 'skipped'} |
 
 ### Next Steps
 
