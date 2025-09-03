@@ -1,5 +1,5 @@
-environment = "prod"
-location = "uksouth"
+environment              = "prod"
+location                 = "uksouth"
 resource_group_base_name = "devops-ai"
 tags = {
   environment = "production"
