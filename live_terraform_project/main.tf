@@ -17,8 +17,8 @@ module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.1"
 
-  name     = "rg-devops-ai-786-${var.environment}"
-  location = var.location
-
-  tags = var.tags
+  name             = "rg-devops-agent-poc-${var.environment}"
+  location         = var.location
+  enable_telemetry = true
+  tags             = var.tags
 }
