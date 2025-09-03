@@ -195,17 +195,25 @@ jobs:
               comment.body.includes('CI Pipeline Summary')
             );
             
+            const securityStatus = '${{ needs.security.result }}' === 'success' ? '✅' : '❌';
+            const validateStatus = '${{ needs.validate.result }}' === 'success' ? '✅' : '❌';
+            const planStatus = '${{ needs.validate.result }}' === 'success' ? '✅' : '⚠️';
+            
+            const nextSteps = ('${{ needs.validate.result }}' !== 'success' || '${{ needs.security.result }}' !== 'success') 
+              ? '🔧 Please fix the issues above before merging.' 
+              : '✅ All checks passed! Ready for merge and deployment.';
+            
             const summary = `## 📋 CI Pipeline Summary
 
 | Check | Status | Result |
 |-------|--------|--------|
-| Security Scan | ${{ needs.security.result == 'success' && '✅' || '❌' }} | ${{ needs.security.result }} |
-| Terraform Validate | ${{ needs.validate.result == 'success' && '✅' || '❌' }} | ${{ needs.validate.result }} |
-| Terraform Plan | ${{ needs.validate.result == 'success' && '⚠️' || '⚠️' }} | ${{ needs.validate.result == 'success' && 'skipped' || 'skipped' }} |
+| Security Scan | ${securityStatus} | ${{ needs.security.result }} |
+| Terraform Validate | ${validateStatus} | ${{ needs.validate.result }} |
+| Terraform Plan | ${planStatus} | ${{ needs.validate.result === 'success' && 'success' || 'skipped' }} |
 
 ### Next Steps
 
-${{ (needs.validate.result != 'success' || needs.security.result != 'success') && '🔧 Please fix the issues above before merging.' || '✅ All checks passed! Ready for merge and deployment.' }}
+${nextSteps}
 
 --------
 
