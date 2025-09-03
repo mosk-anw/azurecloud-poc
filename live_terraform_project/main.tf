@@ -1,24 +1,36 @@
-terraform {
-  required_version = ">= 1.9"
+variable "environment" {
+  type    = string
+  default = "dev"
+}
 
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
+variable "location" {
+  type    = string
+  default = "East US"
+}
+
+variable "tags" {
+  type = map(string)
+  default = {
+    environment = "dev"
+    department  = "IT"
   }
 }
 
-provider "azurerm" {
-  features {}
+resource "azurerm_resource_group" "main" {
+  name     = "example-resources"
+  location = "East US"
 }
 
-module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.1"
+data "azurerm_client_config" "current" {}
 
-  name             = "rg-devops-agent-poc-${var.environment}"
-  location         = var.location
-  enable_telemetry = true
-  tags             = var.tags
+resource "azurerm_key_vault" "example" {
+  name                       = "kv-${var.keyvault_base_name}-${var.environment}"
+  location                   = var.location
+  resource_group_name        = azurerm_resource_group.main.name
+  sku_name                   = "standard"
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = true
+
+  tags = var.tags
 }
