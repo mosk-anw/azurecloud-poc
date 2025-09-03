@@ -1,5 +1,5 @@
-environment = "stg"
-location = "uksouth"
+environment              = "stg"
+location                 = "uksouth"
 resource_group_base_name = "devops-ai"
 tags = {
   environment = "staging"
