@@ -206,21 +206,23 @@ jobs:
               ? '🔧 Please fix the issues above before merging.' 
               : '✅ All checks passed! Ready for merge and deployment.';
             
-            const summary = `## 📋 CI Pipeline Summary
-
-| Check | Status | Result |
-|-------|--------|--------|
-| Security Scan | ${securityStatus} | ${securityResult} |
-| Terraform Validate | ${validateStatus} | ${validateResult} |
-| Terraform Plan | ${planStatus} | ${validateResult === 'success' ? 'success' : 'skipped'} |
-
-### Next Steps
-
-${nextSteps}
-
---------
-
-🤖 Automated CI Pipeline - Strict GitOps Promotion`;
+            const summary = [
+              "## 📋 CI Pipeline Summary",
+              "",
+              "| Check | Status | Result |",
+              "|-------|--------|--------|",
+              `| Security Scan | ${securityStatus} | ${securityResult} |`,
+              `| Terraform Validate | ${validateStatus} | ${validateResult} |`,
+              `| Terraform Plan | ${planStatus} | ${validateResult === 'success' ? 'success' : 'skipped'} |`,
+              "",
+              "### Next Steps",
+              "",
+              nextSteps,
+              "",
+              "--------",
+              "",
+              "🤖 Automated CI Pipeline - Strict GitOps Promotion"
+            ].join('\n');
 
             if (botComment) {
               await github.rest.issues.updateComment({
