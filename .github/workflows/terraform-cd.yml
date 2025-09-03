@@ -1,5 +1,11 @@
 name: Terraform CD - Environment Deployments
 
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+  issues: write
 on:
   push:
     branches: [develop, staging, main]

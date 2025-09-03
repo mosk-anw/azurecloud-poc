@@ -5,6 +5,12 @@ on:
     branches: [develop, staging, main]
     paths: ['live_terraform_project/**']
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
+
 env:
   TF_VERSION: 1.9.7
   WORKING_DIR: live_terraform_project
@@ -28,7 +34,7 @@ jobs:
       - name: Terraform Format
         working-directory: ${{ env.WORKING_DIR }}
         run: |
-          echo "�� Checking Terraform formatting..."
+          echo "🔍 Checking Terraform formatting..."
           terraform fmt -check -recursive || {
             echo "❌ Terraform files need formatting"
             echo "Running terraform fmt to fix formatting..."
@@ -183,6 +189,7 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
