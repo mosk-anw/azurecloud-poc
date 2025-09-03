@@ -1,7 +1,7 @@
 # Staging Environment Configuration
-environment = "stg"
+environment              = "stg"
 resource_group_base_name = "devops-ai"
-location = "Central US"
+location                 = "Central US"
 
 tags = {
   environment = "stg"
