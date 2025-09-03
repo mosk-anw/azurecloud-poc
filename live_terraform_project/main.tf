@@ -1,24 +1,5 @@
-terraform {
-  required_version = ">= 1.9"
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
-  }
-}
-
-provider "azurerm" {
-  features {}
-}
-
-module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.1"
-
-  name             = "rg-devops-agent-poc-${var.environment}"
-  location         = var.location
-  enable_telemetry = true
-  tags             = var.tags
+resource "azurerm_resource_group" "main" {
+  name     = "rg-${var.resource_group_base_name}-${var.environment}"
+  location = var.location
+  tags     = var.tags
 }
