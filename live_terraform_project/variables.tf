@@ -10,13 +10,11 @@ variable "tags" {
 }
 
 variable "location" {
-  description = "Azure region"
+  description = "The Azure region where resources will be created"
   type        = string
-  default     = "uksouth"
 }
 
 variable "resource_group_base_name" {
   description = "Base name for resource group"
   type        = string
-  default     = "devops-ai"
 }

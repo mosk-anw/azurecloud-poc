@@ -1,7 +1,7 @@
 # Development Environment Configuration
-environment = "dev"
+environment              = "dev"
 resource_group_base_name = "devops-ai"
-location = "East US"
+location                 = "East US"
 
 tags = {
   environment = "dev"
