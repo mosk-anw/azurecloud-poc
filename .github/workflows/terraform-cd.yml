@@ -47,8 +47,6 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure Terraform Backend
         working-directory: ${{ env.WORKING_DIR }}
@@ -89,8 +87,6 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure Terraform Backend
         working-directory: ${{ env.WORKING_DIR }}
@@ -145,8 +141,6 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure Terraform Backend
         working-directory: ${{ env.WORKING_DIR }}
@@ -209,8 +203,6 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set Environment Variables
         id: env
