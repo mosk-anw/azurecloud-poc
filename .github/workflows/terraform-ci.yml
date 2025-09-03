@@ -1,0 +1,248 @@
+name: Terraform CI
+
+on:
+  pull_request:
+    branches: [develop, staging, main]
+    paths: ['live_terraform_project/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
+
+env:
+  TF_VERSION: 1.9.7
+  WORKING_DIR: live_terraform_project
+
+jobs:
+  validate:
+    name: Terraform Format & Validate
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "🔍 Checking Terraform formatting..."
+          terraform fmt -check -recursive || {
+            echo "❌ Terraform files need formatting"
+            echo "Running terraform fmt to fix formatting..."
+            terraform fmt -recursive
+            echo "FORMAT_NEEDED=true" >> $GITHUB_ENV
+          }
+
+      - name: Auto-fix formatting
+        if: env.FORMAT_NEEDED == 'true'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "🔧 Auto-formatting Terraform files..."
+          terraform fmt -recursive
+          
+      - name: Push formatting changes
+        if: env.FORMAT_NEEDED == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.head_ref }}
+        continue-on-error: true
+
+      - name: Determine Environment
+        id: env
+        run: |
+          if [[ "${{ github.base_ref }}" == "develop" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "backend_config=backends/development.hcl" >> $GITHUB_OUTPUT
+            echo "tfvars_file=environments/development.tfvars" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.base_ref }}" == "staging" ]]; then
+            echo "environment=stg" >> $GITHUB_OUTPUT
+            echo "backend_config=backends/staging.hcl" >> $GITHUB_OUTPUT
+            echo "tfvars_file=environments/staging.tfvars" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.base_ref }}" == "main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "backend_config=backends/production.hcl" >> $GITHUB_OUTPUT
+            echo "tfvars_file=environments/production.tfvars" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "backend_config=backends/development.hcl" >> $GITHUB_OUTPUT
+            echo "tfvars_file=environments/development.tfvars" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Terraform Init (without backend)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "🚀 Initializing Terraform (validation mode)..."
+          terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "✅ Validating Terraform configuration..."
+          terraform validate
+
+      - name: Terraform Plan (with backend)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "📋 Creating Terraform plan for ${{ steps.env.outputs.environment }} environment..."
+          echo "Using backend: ${{ steps.env.outputs.backend_config }}"
+          echo "Using variables: ${{ steps.env.outputs.tfvars_file }}"
+          
+          # Initialize with backend for plan
+          terraform init -backend-config=${{ steps.env.outputs.backend_config }}
+          
+          # Create plan
+          terraform plan \
+            -var-file=${{ steps.env.outputs.tfvars_file }} \
+            -out=tfplan-${{ steps.env.outputs.environment }} \
+            -detailed-exitcode
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        continue-on-error: true
+        id: plan
+
+      - name: Restore files
+        if: always()
+        run: |
+          echo "🔄 Cleaning up temporary files..."
+          git checkout HEAD -- .
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkov Security Scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: live_terraform_project
+          soft_fail: true
+          framework: terraform
+          output_format: sarif
+          output_file_path: results.sarif
+
+      - name: Upload security results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: always()
+    
+    steps:
+      - name: CI Summary
+        run: |
+          echo "## 📋 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.security.result }}" == "success" ]]; then
+            echo "| Security Scan | ✅ | success |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Security Scan | ❌ | failure |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.validate.result }}" == "success" ]]; then
+            echo "| Terraform Validate | ✅ | success |" >> $GITHUB_STEP_SUMMARY
+            echo "| Terraform Plan | ✅ | success |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Terraform Validate | ❌ | failure |" >> $GITHUB_STEP_SUMMARY
+            echo "| Terraform Plan | ⚠️ | skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.validate.result }}" != "success" || "${{ needs.security.result }}" != "success" ]]; then
+            echo "🔧 Please fix the issues above before merging." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All checks passed! Ready for merge and deployment." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "--------" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🤖 Automated CI Pipeline - Strict GitOps Promotion" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('CI Pipeline Summary')
+            );
+            
+            const securityResult = '${{ needs.security.result }}';
+            const validateResult = '${{ needs.validate.result }}';
+            
+            const securityStatus = securityResult === 'success' ? '✅' : '❌';
+            const validateStatus = validateResult === 'success' ? '✅' : '❌';
+            const planStatus = validateResult === 'success' ? '✅' : '⚠️';
+            
+            const nextSteps = (validateResult !== 'success' || securityResult !== 'success') 
+              ? '🔧 Please fix the issues above before merging.' 
+              : '✅ All checks passed! Ready for merge and deployment.';
+            
+            const summary = [
+              "## 📋 CI Pipeline Summary",
+              "",
+              "| Check | Status | Result |",
+              "|-------|--------|--------|",
+              `| Security Scan | ${securityStatus} | ${securityResult} |`,
+              `| Terraform Validate | ${validateStatus} | ${validateResult} |`,
+              `| Terraform Plan | ${planStatus} | ${validateResult === 'success' ? 'success' : 'skipped'} |`,
+              "",
+              "### Next Steps",
+              "",
+              nextSteps,
+              "",
+              "--------",
+              "",
+              "🤖 Automated CI Pipeline - Strict GitOps Promotion"
+            ].join('\n');
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }

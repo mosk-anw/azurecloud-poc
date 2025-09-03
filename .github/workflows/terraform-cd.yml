@@ -1,0 +1,273 @@
+name: Terraform CD - Environment Deployments
+
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+  issues: write
+on:
+  push:
+    branches: [develop, staging, main]
+    paths: ['live_terraform_project/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+
+env:
+  TF_VERSION: 1.9.7
+  WORKING_DIR: live_terraform_project
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+jobs:
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'develop' && github.event_name == 'push'
+    environment: 
+      name: dev
+      url: https://portal.azure.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+
+      - name: Configure Terraform Backend
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "🔧 Configuring backend for development environment"
+          terraform init -backend-config=backends/development.hcl
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "📋 Planning deployment for development"
+          terraform plan \
+            -var-file=environments/development.tfvars \
+            -out=tfplan-dev \
+            -detailed-exitcode
+
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIR }}
+        if: success()
+        run: |
+          echo "🚀 Applying infrastructure to development"
+          terraform apply -auto-approve tfplan-dev
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'staging' && github.event_name == 'push'
+    environment: 
+      name: stg
+      url: https://portal.azure.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+
+      - name: Configure Terraform Backend
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "🔧 Configuring backend for staging environment"
+          terraform init -backend-config=backends/staging.hcl
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "📋 Planning deployment for staging"
+          terraform plan \
+            -var-file=environments/staging.tfvars \
+            -out=tfplan-stg \
+            -detailed-exitcode
+
+      - name: Manual Approval for Staging
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: mosk-anw
+          minimum-approvals: 1
+          issue-title: "🚀 Deploy to Staging Environment"
+          issue-body: |
+            **Environment**: staging
+            **Branch**: ${{ github.ref_name }}
+            **Commit**: ${{ github.sha }}
+            
+            Please review the Terraform plan and approve deployment to **staging**.
+
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIR }}
+        if: success()
+        run: |
+          echo "🚀 Applying infrastructure to staging"
+          terraform apply -auto-approve tfplan-stg
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main' && github.event_name == 'push'
+    environment: 
+      name: prod
+      url: https://portal.azure.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+
+      - name: Configure Terraform Backend
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "�� Configuring backend for production environment"
+          terraform init -backend-config=backends/production.hcl
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "📋 Planning deployment for production"
+          terraform plan \
+            -var-file=environments/production.tfvars \
+            -out=tfplan-prod \
+            -detailed-exitcode
+
+      - name: Manual Approval for Production
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: mosk-anw
+          minimum-approvals: 1
+          issue-title: "🚀 Deploy to Production Environment"
+          issue-body: |
+            **Environment**: production
+            **Branch**: ${{ github.ref_name }}
+            **Commit**: ${{ github.sha }}
+            
+            ⚠️ **CRITICAL PRODUCTION DEPLOYMENT** ⚠️
+            
+            Please review the Terraform plan and approve deployment to **PRODUCTION**.
+            
+            ### Pre-deployment Checklist
+            - [ ] Terraform plan reviewed
+            - [ ] Staging deployment successful
+            - [ ] Change window approved
+            - [ ] Rollback plan ready
+
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIR }}
+        if: success()
+        run: |
+          echo "🚀 Applying infrastructure to production"
+          terraform apply -auto-approve tfplan-prod
+
+  manual-deploy:
+    name: Manual Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: 
+      name: ${{ github.event.inputs.environment }}
+      url: https://portal.azure.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+
+      - name: Set Environment Variables
+        id: env
+        run: |
+          case "${{ github.event.inputs.environment }}" in
+            "dev")
+              echo "backend_config=backends/development.hcl" >> $GITHUB_OUTPUT
+              echo "tfvars_file=environments/development.tfvars" >> $GITHUB_OUTPUT
+              echo "env_name=development" >> $GITHUB_OUTPUT
+              ;;
+            "stg")
+              echo "backend_config=backends/staging.hcl" >> $GITHUB_OUTPUT
+              echo "tfvars_file=environments/staging.tfvars" >> $GITHUB_OUTPUT
+              echo "env_name=staging" >> $GITHUB_OUTPUT
+              ;;
+            "prod")
+              echo "backend_config=backends/production.hcl" >> $GITHUB_OUTPUT
+              echo "tfvars_file=environments/production.tfvars" >> $GITHUB_OUTPUT
+              echo "env_name=production" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Configure Terraform Backend
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "🔧 Configuring backend for ${{ steps.env.outputs.env_name }} environment"
+          terraform init -backend-config=${{ steps.env.outputs.backend_config }}
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "📋 Planning deployment for ${{ steps.env.outputs.env_name }}"
+          terraform plan \
+            -var-file=${{ steps.env.outputs.tfvars_file }} \
+            -out=tfplan-${{ github.event.inputs.environment }} \
+            -detailed-exitcode
+
+      - name: Manual Approval
+        if: github.event.inputs.environment != 'dev'
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: mosk-anw
+          minimum-approvals: 1
+          issue-title: "🚀 Manual Deploy to ${{ steps.env.outputs.env_name }} Environment"
+          issue-body: |
+            **Environment**: ${{ steps.env.outputs.env_name }}
+            **Branch**: ${{ github.ref_name }}
+            **Commit**: ${{ github.sha }}
+            **Triggered by**: Manual workflow dispatch
+            
+            Please approve manual deployment to **${{ steps.env.outputs.env_name }}**.
+
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIR }}
+        if: success()
+        run: |
+          echo "🚀 Applying infrastructure to ${{ steps.env.outputs.env_name }}"
+          terraform apply -auto-approve tfplan-${{ github.event.inputs.environment }}
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🎯 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ steps.env.outputs.env_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
