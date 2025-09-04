@@ -1,23 +1,37 @@
 # Resource Group
-module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.1"
+resource "azurerm_resource_group" "example" {
   name     = var.resource_group_name
   location = var.location
+  tags = {
+    environment = var.environment
+    created_by   = "devops-ai-agent"
+  }
 }
-# Virtual Machine
-module "virtual_machine" {
-  source  = "Azure/avm-res-compute/virtualmachine/azurerm"
-  version = "~> 0.1.0"
-  name = var.name
-  specifications = var.specifications
-  resource_group_name = module.resource_group.name
+# Virtual Network
+resource "azurerm_virtual_network" "example" {
+  name                = "${var.resource_group_name}-vnet"
+  address_space       = var.vnet_address_space
   location            = var.location
-  size = var.size
-  admin_username = var.admin_username
-  os_disk = var.os_disk
-  os_type = var.os_type
-  os_image = var.os_image
+  resource_group_name = azurerm_resource_group.example.name
+}
+# AKS Cluster
+resource "azurerm_kubernetes_cluster" "example" {
+  name                = "${var.resource_group_name}-aks"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.example.name
+  dns_prefix          = "${var.resource_group_name}-aks"
+  kubernetes_version  = var.kubernetes_version
+  default_node_pool {
+    name       = "default"
+    node_count = var.node_count
+    vm_size    = "Standard_DS2_v2"
+  }
+  identity {
+    type = "SystemAssigned"
+  }
+  tags = {
+    environment = var.environment
+  }
 }
 
 variable "location" {
@@ -34,38 +48,18 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
-variable "name" {
-  description = "Name"
-  type        = string
-  default     = "Ubuntu VM"
+variable "vnet_address_space" {
+  description = "Address space for virtual network"
+  type        = list(string)
+  default     = ["10.0.0.0/16"]
 }
-variable "specifications" {
-  description = "Specifications"
+variable "kubernetes_version" {
+  description = "Kubernetes version for AKS"
   type        = string
-  default     = "with public IP"
+  default     = "1.27.0"
 }
-variable "size" {
-  description = "Size"
-  type        = string
-  default     = "Standard_DS2_v2"
-}
-variable "admin_username" {
-  description = "Admin Username"
-  type        = string
-  default     = "admin"
-}
-variable "os_disk" {
-  description = "Os Disk"
-  type        = string
-  default     = "{'os_type': 'Linux', 'os_publisher': 'Canonical', 'os_offer': 'Ubuntu'}"
-}
-variable "os_type" {
-  description = "Os Type"
-  type        = string
-  default     = "Linux"
-}
-variable "os_image" {
-  description = "Os Image"
-  type        = string
-  default     = "{'publisher': 'Canonical', 'offer': '0001-com-ubuntu-server-jammy', 'sku': '22_04-lts-gen2', 'version': 'latest'}"
+variable "node_count" {
+  description = "Number of nodes in AKS cluster"
+  type        = number
+  default     = 3
 }
