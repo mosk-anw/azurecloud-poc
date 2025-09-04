@@ -1,18 +1,9 @@
 # Resource Group
 module "resource_group" {
-  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
-  version = "~> 0.1"
-  name     = var.resource_group_name
-  location = var.location
-}
-# Resource Group
-module "resource_group" {
   source  = "Azure/avm-res-resources/resourcegroup/azurerm"
   version = "~> 0.1.0"
-  name = var.name
   location            = var.location
-  size = var.size
-  resource_group_name = module.resource_group.name
+  name = var.name
 }
 
 variable "location" {
@@ -32,10 +23,5 @@ variable "environment" {
 variable "name" {
   description = "Name"
   type        = string
-  default     = "rg-devops-ai-poc-01"
-}
-variable "size" {
-  description = "Size"
-  type        = string
-  default     = "Standard_B2s"
+  default     = "rg-devops-ai-poc-02"
 }
